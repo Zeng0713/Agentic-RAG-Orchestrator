@@ -1,22 +1,21 @@
-# Agentic RAG Knowledge Base
+# Modular RAG Knowledge Base
 
-一个基于 LangChain、Chroma、SiliconFlow Embedding API 和 DeepSeek 构建的模块化 RAG（Retrieval-Augmented Generation）知识库问答项目。
+一个基于 **LangChain + Chroma + BGE-M3 + DeepSeek** 构建的模块化 RAG（Retrieval-Augmented Generation）知识库问答系统。
 
-项目实现了从 Markdown 文档加载、知识切分、向量化、Chroma 持久化存储、混合检索，到基于 DeepSeek 的答案生成与来源引用的完整 RAG 流程。
+项目实现了从 Markdown 文档加载、知识切分、Embedding、Chroma 向量存储、混合检索，到 DeepSeek 生成答案与引用来源的完整 RAG 链路，并通过模块化设计、异常处理和 Pytest 自动化测试提升项目的可维护性与稳定性。
 
-## 项目特点
+## Features
 
-- 支持 Markdown 知识库加载与按标题切分
-- 使用 BGE-M3 生成文本向量
-- 使用 Chroma 实现向量持久化存储
-- 实现标题关键词匹配 + 向量检索的混合检索策略
-- 使用 DeepSeek 根据检索结果生成回答
-- 支持回答来源引用（Citation）
-- 支持知识库增量同步，避免重复向量化
-- 使用统一配置模块管理模型、API 和数据库配置
-- 使用日志系统记录知识库同步和 API 异常
-- 对 Embedding 和 LLM 外部服务实现独立异常处理
-- 提供模块化测试，覆盖配置、检索、向量数据库和 RAG Chain 等核心模块
+- Markdown 知识文档自动加载与按标题切分
+- 基于 BGE-M3 的文本向量化
+- Chroma 向量数据库持久化存储
+- 标题关键词匹配 + 向量搜索的 Hybrid Retrieval
+- DeepSeek 基于检索上下文生成回答
+- 回答引用来源追踪（Citation）
+- 知识库增量同步，避免重复写入
+- 配置集中管理与启动时 Fail Fast 检查
+- Embedding / LLM 服务异常统一处理
+- Pytest 单元测试与集成测试隔离
 
 ## 技术栈
 
@@ -87,12 +86,10 @@ Answer + Citation
 ```
 
 ## 安装与运行
-
 ### 1. 克隆项目
-
 ```bash
-git clone <your-repository-url>
-cd <your-repository-name>
+git clone https://github.com/Zeng040713/modular-rag-knowledge-base.git
+cd modular-rag-knowledge-base
 ```
 
 ### 2. 创建虚拟环境
@@ -148,4 +145,11 @@ python rag_qa.py
 exit
 ```
 即可退出程序。
+## Testing
 
+项目使用 Pytest 进行自动化测试，并将普通单元测试与真实外部 API 集成测试分离。
+
+运行默认测试：
+
+```bash
+pytest
