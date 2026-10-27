@@ -1,0 +1,15 @@
+.env
+
+venv/
+.venv/
+venv_test/
+
+__pycache__/
+*.pyc
+
+.pytest_cache/
+.idea/
+
+# Chroma generated database
+chroma_db/
+chroma_db_backup/
