@@ -88,7 +88,7 @@ Answer + Citation
 ## 安装与运行
 ### 1. 克隆项目
 ```bash
-git clone https://github.com/Zeng040713/modular-rag-knowledge-base.git
+git clone https://github.com/Zeng0713/modular-rag-knowledge-base.git
 cd modular-rag-knowledge-base
 ```
 
