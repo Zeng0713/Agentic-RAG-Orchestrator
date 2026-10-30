@@ -153,14 +153,14 @@ def test_run_agent_handles_multiple_tool_rounds(monkeypatch):
     assert executed == ["查询 1", "查询 2", "查询 3"]
 
 
-def test_run_agent_stops_after_four_tool_rounds(monkeypatch):
+def test_run_agent_stops_after_six_tool_rounds(monkeypatch):
     responses = [
         FakeResponse(tool_calls=[{
             "id": f"call_{index}",
             "name": "knowledge_search",
             "args": {"question": f"查询 {index}"},
         }])
-        for index in range(1, 5)
+        for index in range(1, 7)
     ] + [FakeResponse(content="达到上限后的回答")]
     llm = FakeLLM(responses)
     executed = []
@@ -174,8 +174,8 @@ def test_run_agent_stops_after_four_tool_rounds(monkeypatch):
     result = agent.run_agent("问题", llm, [], None)
 
     assert result == "达到上限后的回答"
-    assert len(executed) == agent.MAX_TOOL_ROUNDS == 4
-    assert llm.index == 5
+    assert len(executed) == agent.MAX_TOOL_ROUNDS == 6
+    assert llm.index == 7
 
 
 def test_execute_list_knowledge_sources():

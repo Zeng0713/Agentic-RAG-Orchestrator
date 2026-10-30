@@ -2,7 +2,7 @@ import json
 from src.tool_schemas import TOOL_SCHEMAS
 from src.tool_registry import get_tool
 
-MAX_TOOL_ROUNDS = 4
+MAX_TOOL_ROUNDS = 6
 MAX_CONVERSATION_TURNS = 6
 
 
