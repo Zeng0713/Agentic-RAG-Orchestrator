@@ -6,22 +6,22 @@
 
 这是一个面向本地知识库问答的模块化项目，包含传统 RAG 流程和基于 DeepSeek 工具调用的 Agentic RAG 入口。当前 Agent 在一次工具选择后执行工具并生成最终回答，适合作为 Agentic RAG 实践项目，不定位为通用多 Agent 编排平台。
 
-一个基于 **LangChain、Chroma、BGE-M3 和 DeepSeek** 的模块化知识库问答项目，提供传统 RAG 问答和 Agentic RAG 两种命令行入口。
+一个基于 **LangChain、Chroma、BGE-M3 与 DeepSeek** 构建的模块化知识库问答引擎，覆盖 Markdown 文档解析与分块、向量化索引、标题关键词与向量混合检索，以及基于检索上下文的答案生成与来源引用；同时提供传统 RAG 和 Agentic RAG 两种 CLI 流程，支持 DeepSeek 工具选择、Schema 驱动的参数校验与工具结果回传。
 
 项目从 Markdown 文档加载并按标题切分知识，使用 SiliconFlow 提供的 BGE-M3 Embedding，存入本地 Chroma 向量数据库。检索结合标题关键词匹配与向量搜索；传统 RAG 流程将检索上下文交给 DeepSeek 并生成答案及引用。Agent 流程由 DeepSeek 根据问题选择工具，执行后再根据工具结果生成回答。
 
 ## 功能
 
-- 从 `data/documents/` 加载 Markdown 文档并按标题切分
-- 通过 SiliconFlow API 使用 `BAAI/bge-m3` 生成向量
-- 使用 Chroma 持久化知识库，并增量新增或更新文档
-- 结合标题关键词匹配和向量搜索检索相关内容
-- 使用 DeepSeek 生成基于检索资料的回答
-- 提供知识库 Agent 工具调用，可搜索知识或列出资料来源
-- 传统 RAG 回答支持来源引用
-- 集中管理配置，并在启动时检查 API Key
-- 使用 Pytest 测试模块；默认跳过需要外部服务的集成测试
-
+- **结构化知识摄取**：加载 Markdown 文档并按二级标题拆分，保留来源路径与文档类型等元数据。
+- **语义向量化**：通过 SiliconFlow 调用 BGE-M3，将知识片段编码为向量表示。
+- **持久化知识索引**：使用 Chroma 保存向量与文档内容，支持新增片段及更新已变化内容。
+- **混合检索**：融合标题关键词命中与向量相似度搜索，优先保留标题匹配结果并对重复片段去重。
+- **基于证据的答案生成**：将检索片段作为上下文交给 DeepSeek，生成回答并整理实际引用的资料来源。
+- **Schema 驱动的 Agent 工具调用**：由 DeepSeek 在 `knowledge_search` 与 `list_knowledge_sources` 之间选择，程序通过注册表和执行器完成分发。
+- **工具参数校验与结果回传**：执行前依据 Tool Schema 检查参数对象、必填字段、未定义字段和基本类型，再将工具结果回传模型生成答复。
+- **双模式命令行体验**：分别通过 `rag_qa.py` 使用传统 RAG，或通过 `agent_qa.py` 使用 Agentic RAG。
+- **配置校验与服务错误处理**：启动时检查所需 API Key，并对 Embedding、LLM 服务错误提供统一异常处理。
+- **自动化质量检查**：使用 Pytest 覆盖核心模块；默认测试与真实外部 API 集成测试分开运行。
 ## 知识库文档
 
 `data/documents/` 中目前包含以下 Markdown 知识文档，程序启动时会读取并按二级标题切分：
