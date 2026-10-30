@@ -39,3 +39,57 @@ def test_embedding_query_error(monkeypatch):
         embeddings.embed_query(
             "什么是 RAG？"
         )
+def test_embedding_documents_error(monkeypatch):
+    monkeypatch.setattr(
+        embeddings_module,
+        "SILICONFLOW_API_KEY",
+        "test-key",
+    )
+
+    def fake_embed_documents(
+        self,
+        texts,
+        chunk_size=None,
+    ):
+        raise ConnectionError("模拟网络错误")
+
+    monkeypatch.setattr(
+        OpenAIEmbeddings,
+        "embed_documents",
+        fake_embed_documents,
+    )
+
+    embeddings = embeddings_module.create_embeddings()
+
+    with pytest.raises(
+        EmbeddingServiceError,
+        match="Embedding 服务暂时不可用",
+    ):
+        embeddings.embed_documents(["测试文本"])
+
+
+def test_embedding_documents_success(monkeypatch):
+    monkeypatch.setattr(
+        embeddings_module,
+        "SILICONFLOW_API_KEY",
+        "test-key",
+    )
+
+    def fake_embed_documents(
+        self,
+        texts,
+        chunk_size=None,
+    ):
+        return [[0.1, 0.2] for _ in texts]
+
+    monkeypatch.setattr(
+        OpenAIEmbeddings,
+        "embed_documents",
+        fake_embed_documents,
+    )
+
+    embeddings = embeddings_module.create_embeddings()
+
+    result = embeddings.embed_documents(["测试文本"])
+
+    assert result == [[0.1, 0.2]]
