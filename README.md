@@ -136,7 +136,7 @@ Agentic RAG 问答：
 python agent_qa.py
 ```
 
-按程序提示输入问题。传统 RAG 在输入 `exit` 后退出；Agent 入口也提示输入 `exit` 退出。
+按程序提示输入问题。输入 `exit` 或 `退出` 可以结束 Agent；空问题会提示重新输入。知识库为空时，Agent 会提示先添加 Markdown 文档；Embedding 或 DeepSeek 服务临时不可用时会提示重试，不会直接结束交互程序。
 
 ## 测试与覆盖率
 
@@ -158,7 +158,7 @@ pytest --cov=src --cov-report=term-missing
 pytest -o addopts= -m integration
 ```
 
-当前仓库验证结果：默认测试 **40 passed, 4 deselected**，`src/` 总覆盖率 **96%（220 statements，9 missed）**。集成测试未在此次验证中运行。
+当前仓库验证结果：默认测试 **40 passed, 4 deselected**，`src/` 总覆盖率 **96%（220 statements，9 missed）**。最近验证日期：2026-10-30。集成测试未在此次验证中运行。
 
 ## CI
 
