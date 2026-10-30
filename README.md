@@ -1,3 +1,4 @@
+[![Tests](https://github.com/Zeng0713/modular-rag-knowledge-base/actions/workflows/tests.yml/badge.svg)](https://github.com/Zeng0713/modular-rag-knowledge-base/actions/workflows/tests.yml)
 # Modular RAG Knowledge Base
 
 一个基于 **LangChain + Chroma + BGE-M3 + DeepSeek** 构建的模块化 RAG（Retrieval-Augmented Generation）知识库问答系统。
