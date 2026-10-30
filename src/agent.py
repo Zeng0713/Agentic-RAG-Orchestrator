@@ -33,10 +33,52 @@ def execute_tool(
     documents,
     vector_store,
 ):
-    tool_name = tool_call["name"]
-    arguments = tool_call["args"]
+    if not isinstance(tool_call, dict):
+        raise ValueError("工具调用必须是对象")
+
+    tool_name = tool_call.get("name")
+    arguments = tool_call.get("args")
 
     tool = get_tool(tool_name)
+    schema = next(
+        item["function"]
+        for item in TOOL_SCHEMAS
+        if item["function"]["name"] == tool_name
+    )
+    parameters = schema["parameters"]
+
+    if not isinstance(arguments, dict):
+        raise ValueError(f"工具 {tool_name} 的参数必须是对象")
+
+    properties = parameters.get("properties", {})
+    required = parameters.get("required", [])
+
+    missing = [key for key in required if key not in arguments]
+    if missing:
+        raise ValueError(
+            f"工具 {tool_name} 缺少必填参数：{', '.join(missing)}"
+        )
+
+    unexpected = set(arguments) - set(properties)
+    if unexpected:
+        raise ValueError(
+            f"工具 {tool_name} 包含未知参数：{', '.join(sorted(unexpected))}"
+        )
+
+    for key, value in arguments.items():
+        expected_type = properties[key].get("type")
+        valid = {
+            "string": lambda item: isinstance(item, str),
+            "number": lambda item: isinstance(item, (int, float)) and not isinstance(item, bool),
+            "integer": lambda item: isinstance(item, int) and not isinstance(item, bool),
+            "boolean": lambda item: isinstance(item, bool),
+            "object": lambda item: isinstance(item, dict),
+            "array": lambda item: isinstance(item, list),
+        }.get(expected_type)
+        if valid and not valid(value):
+            raise ValueError(
+                f"工具 {tool_name} 参数 {key} 类型错误，预期 {expected_type}"
+            )
 
     if tool_name == "knowledge_search":
         return tool(

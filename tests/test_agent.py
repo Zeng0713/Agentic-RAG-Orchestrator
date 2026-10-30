@@ -1,3 +1,4 @@
+import pytest
 from langchain_core.documents import Document
 
 import src.agent as agent
@@ -126,3 +127,33 @@ def test_execute_list_knowledge_sources():
         "agent_intro.md",
         "rag_intro.md",
     ]
+
+
+def test_execute_tool_rejects_missing_required_argument():
+    tool_call = {
+        "name": "knowledge_search",
+        "args": {},
+    }
+
+    with pytest.raises(ValueError, match="缺少必填参数：question"):
+        agent.execute_tool(tool_call, documents=[], vector_store=None)
+
+
+def test_execute_tool_rejects_wrong_argument_type():
+    tool_call = {
+        "name": "knowledge_search",
+        "args": {"question": 42},
+    }
+
+    with pytest.raises(ValueError, match="参数 question 类型错误"):
+        agent.execute_tool(tool_call, documents=[], vector_store=None)
+
+
+def test_execute_tool_rejects_unknown_argument():
+    tool_call = {
+        "name": "list_knowledge_sources",
+        "args": {"path": "private"},
+    }
+
+    with pytest.raises(ValueError, match="包含未知参数：path"):
+        agent.execute_tool(tool_call, documents=[], vector_store=None)

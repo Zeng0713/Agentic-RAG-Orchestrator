@@ -62,3 +62,29 @@ RAG 是检索增强生成。
         documents[1].metadata["source"]
         == str(test_file)
     )
+
+
+def test_loads_project_knowledge_documents():
+    documents = load_documents("data/documents")
+
+    sources = {
+        document.metadata["source"]
+        for document in documents
+    }
+
+    assert any(
+        source.endswith("rag_bulid_intro.md")
+        for source in sources
+    )
+    assert any(
+        source.endswith("agentic_rag_build_intro.md")
+        for source in sources
+    )
+    assert any(
+        "混合检索" in document.page_content
+        for document in documents
+    )
+    assert any(
+        "Agentic RAG 搭建流程总览" in document.page_content
+        for document in documents
+    )

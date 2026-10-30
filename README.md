@@ -1,6 +1,10 @@
 [![Tests](https://github.com/Zeng0713/modular-rag-knowledge-base/actions/workflows/tests.yml/badge.svg)](https://github.com/Zeng0713/modular-rag-knowledge-base/actions/workflows/tests.yml)
 
-# Modular RAG Knowledge Base
+# Agentic RAG Orchestrator
+
+*A Modular and Agentic RAG Engine with Hybrid Retrieval, Chroma, and DeepSeek Tool Calling.*
+
+这是一个面向本地知识库问答的模块化项目，包含传统 RAG 流程和基于 DeepSeek 工具调用的 Agentic RAG 入口。当前 Agent 在一次工具选择后执行工具并生成最终回答，适合作为 Agentic RAG 实践项目，不定位为通用多 Agent 编排平台。
 
 一个基于 **LangChain、Chroma、BGE-M3 和 DeepSeek** 的模块化知识库问答项目，提供传统 RAG 问答和 Agentic RAG 两种命令行入口。
 
@@ -17,6 +21,17 @@
 - 传统 RAG 回答支持来源引用
 - 集中管理配置，并在启动时检查 API Key
 - 使用 Pytest 测试模块；默认跳过需要外部服务的集成测试
+
+## 知识库文档
+
+`data/documents/` 中目前包含以下 Markdown 知识文档，程序启动时会读取并按二级标题切分：
+
+- `agent_intro.md`：Agent、RAG、Embedding、向量数据库和 Agent 执行循环基础。
+- `rag_intro.md`：RAG 定义、基本流程、优点和局限。
+- `rag_bulid_intro.md`：RAG 搭建总览、切分、Embedding、向量存储、检索、回答生成与评估。
+- `agentic_rag_build_intro.md`：Agentic RAG 流程、工具 Schema、Registry、Executor、结果回传和评估。
+
+新增或修改文档后，下次运行入口时会将新增或变化的片段同步到本地 Chroma。当前同步逻辑处理新增和更新；删除 Markdown 文件不会自动清理 Chroma 中对应的旧片段。
 
 ## 架构
 
@@ -158,7 +173,7 @@ pytest --cov=src --cov-report=term-missing
 pytest -o addopts= -m integration
 ```
 
-当前仓库验证结果：默认测试 **40 passed, 4 deselected**，`src/` 总覆盖率 **96%（220 statements，9 missed）**。最近验证日期：2026-10-30。集成测试未在此次验证中运行。
+当前仓库验证结果：默认测试 **44 passed, 4 deselected**，`src/` 模块覆盖率 **96%（239 statements，10 missed）**；该数字仅统计 `src/`，不包含根目录下的 CLI 入口脚本。最近验证日期：2026-10-30。此前集成测试结果为 **4 passed, 44 deselected**。
 
 ## CI
 
