@@ -2,6 +2,18 @@ import json
 from src.tool_schemas import TOOL_SCHEMAS
 from src.tool_registry import get_tool
 
+MAX_TOOL_ROUNDS = 4
+MAX_CONVERSATION_TURNS = 6
+
+
+def add_conversation_turn(history, question, answer):
+    """Append one completed exchange and retain only the latest turns."""
+    history.extend([
+        {"role": "user", "content": question},
+        {"role": "assistant", "content": answer},
+    ])
+    del history[:-2 * MAX_CONVERSATION_TURNS]
+
 
 def select_tool(question, llm):
     messages = [
@@ -100,6 +112,7 @@ def run_agent(
     llm,
     documents,
     vector_store,
+    history=None,
 ):
     messages = [
         {
@@ -112,44 +125,55 @@ def run_agent(
                 "knowledge_search；"
                 "需要查看知识库有哪些资料来源时使用 "
                 "list_knowledge_sources。"
+                "如果用户使用‘它’、‘这个’等指代或提出追问，"
+                "请结合对话历史理解其含义；调用知识搜索时，"
+                "将问题整理为独立、完整的检索问题。"
                 "工具返回结果后，请根据工具结果"
                 "生成最终回答，不要编造资料中没有的信息。"
             ),
         },
-        {
-            "role": "user",
-            "content": question,
-        },
     ]
+    if history:
+        messages.extend(history[-2 * MAX_CONVERSATION_TURNS:])
+    messages.append({"role": "user", "content": question})
 
-    response = llm.invoke(
-        messages,
-        tools=TOOL_SCHEMAS,
+    for _ in range(MAX_TOOL_ROUNDS):
+        response = llm.invoke(
+            messages,
+            tools=TOOL_SCHEMAS,
+        )
+
+        if not response.tool_calls:
+            return response.content
+
+        messages.append(response)
+
+        for tool_call in response.tool_calls:
+            result = execute_tool(
+                tool_call=tool_call,
+                documents=documents,
+                vector_store=vector_store,
+            )
+
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call["id"],
+                    "content": json.dumps(
+                        result,
+                        ensure_ascii=False,
+                    ),
+                }
+            )
+
+    messages.append(
+        {
+            "role": "system",
+            "content": (
+                "工具调用轮数已达到上限。请勿再调用或输出工具调用标记；"
+                "请直接使用已有工具结果回答用户，并说明资料不足之处。"
+            ),
+        }
     )
-
-    if not response.tool_calls:
-        return response.content
-
-    messages.append(response)
-
-    for tool_call in response.tool_calls:
-        result = execute_tool(
-            tool_call=tool_call,
-            documents=documents,
-            vector_store=vector_store,
-        )
-
-        messages.append(
-            {
-                "role": "tool",
-                "tool_call_id": tool_call["id"],
-                "content": json.dumps(
-                    result,
-                    ensure_ascii=False,
-                ),
-            }
-        )
-
     final_response = llm.invoke(messages)
-
     return final_response.content

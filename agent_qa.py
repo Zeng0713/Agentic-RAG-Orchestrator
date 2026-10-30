@@ -6,7 +6,7 @@ from src.vector_store import (
     sync_documents,
 )
 from src.rag_chain import create_llm
-from src.agent import run_agent
+from src.agent import add_conversation_turn, run_agent
 from src.exceptions import EmbeddingServiceError, LLMServiceError
 
 validate_config()
@@ -20,6 +20,7 @@ sync_documents(
     documents,
 )
 llm = create_llm()
+conversation_history = []
 
 print(
     "Knowledge Base Agent 已启动，"
@@ -50,6 +51,7 @@ while True:
             llm=llm,
             documents=documents,
             vector_store=vector_store,
+            history=conversation_history,
         )
     except EmbeddingServiceError:
         print("知识检索失败，Embedding 服务暂时不可用，请稍后重试。")
@@ -63,3 +65,8 @@ while True:
 
     print("\nAgent 回答：")
     print(answer)
+    add_conversation_turn(
+        conversation_history,
+        question,
+        answer,
+    )

@@ -4,7 +4,7 @@
 
 *A Modular and Agentic RAG Engine with Hybrid Retrieval, Chroma, and DeepSeek Tool Calling.*
 
-这是一个面向本地知识库问答的模块化项目，包含传统 RAG 流程和基于 DeepSeek 工具调用的 Agentic RAG 入口。当前 Agent 在一次工具选择后执行工具并生成最终回答，适合作为 Agentic RAG 实践项目，不定位为通用多 Agent 编排平台。
+这是一个面向本地知识库问答的模块化项目，包含传统 RAG 流程和基于 DeepSeek 工具调用的 Agentic RAG 入口。Agent 每轮对话可参考最近六轮问答，并最多执行四轮工具调用；达到工具调用上限后会基于已有结果生成最终回答，适合作为 Agentic RAG 实践项目，不定位为通用多 Agent 编排平台。
 
 一个基于 **LangChain、Chroma、BGE-M3 与 DeepSeek** 构建的模块化知识库问答引擎，覆盖 Markdown 文档解析与分块、向量化索引、标题关键词与向量混合检索，以及基于检索上下文的答案生成与来源引用；同时提供传统 RAG 和 Agentic RAG 两种 CLI 流程，支持 DeepSeek 工具选择、Schema 驱动的参数校验与工具结果回传。
 
@@ -19,6 +19,7 @@
 - **基于证据的答案生成**：将检索片段作为上下文交给 DeepSeek，生成回答并整理实际引用的资料来源。
 - **Schema 驱动的 Agent 工具调用**：由 DeepSeek 在 `knowledge_search` 与 `list_knowledge_sources` 之间选择，程序通过注册表和执行器完成分发。
 - **工具参数校验与结果回传**：执行前依据 Tool Schema 检查参数对象、必填字段、未定义字段和基本类型，再将工具结果回传模型生成答复。
+- **有限上下文对话与迭代式工具编排**：在当前会话中保留最近六轮问答，结合对话历史解析指代与连续追问；单个问题最多执行四轮工具调用，并将每轮结果纳入后续决策，达到上限后基于已有证据生成答复。
 - **双模式命令行体验**：分别通过 `rag_qa.py` 使用传统 RAG，或通过 `agent_qa.py` 使用 Agentic RAG。
 - **配置校验与服务错误处理**：启动时检查所需 API Key，并对 Embedding、LLM 服务错误提供统一异常处理。
 - **自动化质量检查**：使用 Pytest 覆盖核心模块；默认测试与真实外部 API 集成测试分开运行。
@@ -62,10 +63,10 @@ Hybrid Retriever：标题关键词匹配 + 向量搜索
              ↙                         ↘
 knowledge_search              list_knowledge_sources
              ↘                         ↙
-         工具结果加入对话 → DeepSeek 生成最终回答
+         工具结果加入对话 → 最多四轮工具调用 → DeepSeek 生成最终回答
 ```
 
-Agent 当前提供两个工具：`knowledge_search` 使用混合检索查找知识库内容并返回内容及来源；`list_knowledge_sources` 返回已加载文档的来源列表。`src/agent.py` 负责将工具 Schema 提供给模型、执行模型请求、调用 Executor，并将工具结果交回模型生成最终回答；如果模型未选择工具，则直接返回模型回复。
+Agent 当前提供两个工具：`knowledge_search` 使用混合检索查找知识库内容并返回内容及来源；`list_knowledge_sources` 返回已加载文档的来源列表。`src/agent.py` 负责将工具 Schema 提供给模型、执行模型请求、调用 Executor，并将工具结果交回模型继续决策，最多循环四轮；达到上限后要求模型基于已有结果直接回答。如果模型未选择工具，则直接返回模型回复。
 
 ## 项目结构
 
@@ -151,7 +152,7 @@ Agentic RAG 问答：
 python agent_qa.py
 ```
 
-按程序提示输入问题。输入 `exit` 或 `退出` 可以结束 Agent；空问题会提示重新输入。知识库为空时，Agent 会提示先添加 Markdown 文档；Embedding 或 DeepSeek 服务临时不可用时会提示重试，不会直接结束交互程序。
+按程序提示输入问题。Agent 会在当前进程中保留最近六轮问答上下文，支持结合前文理解追问；退出程序后历史清空。输入 `exit` 或 `退出` 可以结束 Agent；空问题会提示重新输入。知识库为空时，Agent 会提示先添加 Markdown 文档；Embedding 或 DeepSeek 服务临时不可用时会提示重试，不会直接结束交互程序。
 
 ## 测试与覆盖率
 
@@ -173,7 +174,7 @@ pytest --cov=src --cov-report=term-missing
 pytest -o addopts= -m integration
 ```
 
-当前仓库验证结果：默认测试 **44 passed, 4 deselected**，`src/` 模块覆盖率 **96%（239 statements，10 missed）**；该数字仅统计 `src/`，不包含根目录下的 CLI 入口脚本。最近验证日期：2026-10-30。此前集成测试结果为 **4 passed, 44 deselected**。
+当前仓库验证结果：默认测试 **48 passed, 4 deselected**，`src/` 模块覆盖率 **96%（249 statements，10 missed）**；该数字仅统计 `src/`，不包含根目录下的 CLI 入口脚本。最近验证日期：2026-10-30。本轮仅运行默认离线测试；集成测试需单独运行。
 
 ## CI
 
