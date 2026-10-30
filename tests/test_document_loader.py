@@ -73,7 +73,7 @@ def test_loads_project_knowledge_documents():
     }
 
     assert any(
-        source.endswith("rag_bulid_intro.md")
+        source.endswith("rag_build_intro.md")
         for source in sources
     )
     assert any(

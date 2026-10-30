@@ -29,7 +29,7 @@
 
 - `agent_intro.md`：Agent、RAG、Embedding、向量数据库和 Agent 执行循环基础。
 - `rag_intro.md`：RAG 定义、基本流程、优点和局限。
-- `rag_bulid_intro.md`：RAG 搭建总览、切分、Embedding、向量存储、检索、回答生成与评估。
+- `rag_build_intro.md`：RAG 搭建总览、切分、Embedding、向量存储、检索、回答生成与评估。
 - `agentic_rag_build_intro.md`：Agentic RAG 流程、工具 Schema、Registry、Executor、结果回传和评估。
 
 新增或修改文档后，下次运行入口时会将新增或变化的片段同步到本地 Chroma。当前同步逻辑处理新增和更新；删除 Markdown 文件不会自动清理 Chroma 中对应的旧片段。
