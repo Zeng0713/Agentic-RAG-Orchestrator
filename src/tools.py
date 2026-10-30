@@ -29,3 +29,17 @@ def knowledge_search(
         )
 
     return results
+
+def list_knowledge_sources(documents):
+    sources = []
+
+    for doc in documents:
+        source = doc.metadata.get(
+            "source",
+            "未知来源",
+        )
+
+        if source not in sources:
+            sources.append(source)
+
+    return sources

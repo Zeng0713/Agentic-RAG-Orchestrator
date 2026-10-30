@@ -46,3 +46,34 @@ def test_knowledge_search(monkeypatch):
         results[0]["source"]
         == "rag_intro.md"
     )
+
+def test_list_knowledge_sources():
+    documents = [
+        Document(
+            page_content="Agent 内容 1",
+            metadata={
+                "source": "agent_intro.md"
+            },
+        ),
+        Document(
+            page_content="Agent 内容 2",
+            metadata={
+                "source": "agent_intro.md"
+            },
+        ),
+        Document(
+            page_content="RAG 内容",
+            metadata={
+                "source": "rag_intro.md"
+            },
+        ),
+    ]
+
+    sources = tools.list_knowledge_sources(
+        documents
+    )
+
+    assert sources == [
+        "agent_intro.md",
+        "rag_intro.md",
+    ]
