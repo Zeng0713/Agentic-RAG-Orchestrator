@@ -1,4 +1,4 @@
-[![Tests](https://github.com/Zeng0713/modular-rag-knowledge-base/actions/workflows/tests.yml/badge.svg)](https://github.com/Zeng0713/modular-rag-knowledge-base/actions/workflows/tests.yml)
+[![Tests](https://github.com/Zeng0713/Agentic-RAG-Orchestrator/actions/workflows/tests.yml/badge.svg)](https://github.com/Zeng0713/Agentic-RAG-Orchestrator/actions/workflows/tests.yml)
 
 # Agentic RAG Orchestrator
 
@@ -99,8 +99,8 @@ Agent 当前提供两个工具：`knowledge_search` 使用混合检索查找知�
 需要 **Python 3.12**。从项目目录执行：
 
 ```bash
-git clone https://github.com/Zeng0713/modular-rag-knowledge-base.git
-cd modular-rag-knowledge-base
+git clone https://github.com/Zeng0713/Agentic-RAG-Orchestrator.git
+cd Agentic-RAG-Orchestrator
 python -m venv .venv
 ```
 
@@ -180,4 +180,4 @@ pytest -o addopts= -m integration
 
 GitHub Actions 工作流位于 `.github/workflows/tests.yml`，在推送到 `main`、针对 `main` 的 Pull Request 以及手动触发时运行。工作流使用 Python 3.12，安装 `requirements.txt` 中的依赖，执行带覆盖率报告的默认（非集成）测试，并上传 `coverage.xml` Artifact。
 
-上方徽章链接到 [`Zeng0713/modular-rag-knowledge-base` 的 Tests 工作流](https://github.com/Zeng0713/modular-rag-knowledge-base/actions/workflows/tests.yml)，可在那里查看最新运行状态；本 README 不预设 CI 当前是否通过。
+上方徽章链接到 [`Zeng0713/Agentic-RAG-Orchestrator` 的 Tests 工作流](https://github.com/Zeng0713/Agentic-RAG-Orchestrator/actions/workflows/tests.yml)，可在那里查看最新运行状态；本 README 不预设 CI 当前是否通过。
