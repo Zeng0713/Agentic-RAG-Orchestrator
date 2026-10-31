@@ -41,7 +41,16 @@ LLM_BASE_URL = (
 # Chroma 配置
 # ==============================
 
-CHROMA_DB_PATH = "./chroma_db"
+CHROMA_DB_PATH = os.getenv(
+    "CHROMA_DB_PATH",
+    "./chroma_db",
+)
+
+UPLOADS_DIR = os.getenv("UPLOADS_DIR", "data/uploads")
+MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "5"))
+MAX_QUESTION_LENGTH = int(os.getenv("MAX_QUESTION_LENGTH", "2000"))
+CHAT_REQUESTS_PER_MINUTE = int(os.getenv("CHAT_REQUESTS_PER_MINUTE", "20"))
+UPLOADS_PER_MINUTE = int(os.getenv("UPLOADS_PER_MINUTE", "5"))
 
 CHROMA_COLLECTION_NAME = (
     "agent_knowledge"

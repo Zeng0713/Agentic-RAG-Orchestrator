@@ -77,3 +77,12 @@ def test_list_knowledge_sources():
         "agent_intro.md",
         "rag_intro.md",
     ]
+
+
+def test_tools_hide_server_paths_from_sources():
+    document = Document(
+        page_content="知识内容",
+        metadata={"source": r"C:\\server\\data\\private.md"},
+    )
+
+    assert tools.list_knowledge_sources([document]) == ["private.md"]

@@ -4,180 +4,147 @@
 
 *A Modular and Agentic RAG Engine with Hybrid Retrieval, Chroma, and DeepSeek Tool Calling.*
 
-这是一个面向本地知识库问答的模块化项目，包含传统 RAG 流程和基于 DeepSeek 工具调用的 Agentic RAG 入口。Agent 每轮对话可参考最近六轮问答，并最多执行六轮工具调用；达到工具调用上限后会基于已有结果生成最终回答，适合作为 Agentic RAG 实践项目，不定位为通用多 Agent 编排平台。
-
-一个基于 **LangChain、Chroma、BGE-M3 与 DeepSeek** 构建的模块化知识库问答引擎，覆盖 Markdown 文档解析与分块、向量化索引、标题关键词与向量混合检索，以及基于检索上下文的答案生成与来源引用；同时提供传统 RAG 和 Agentic RAG 两种 CLI 流程，支持 DeepSeek 工具选择、Schema 驱动的参数校验与工具结果回传。
-
-项目从 Markdown 文档加载并按标题切分知识，使用 SiliconFlow 提供的 BGE-M3 Embedding，存入本地 Chroma 向量数据库。检索结合标题关键词匹配与向量搜索；传统 RAG 流程将检索上下文交给 DeepSeek 并生成答案及引用。Agent 流程由 DeepSeek 根据问题选择工具，执行后再根据工具结果生成回答。
+基于 **LangChain、Chroma、BGE-M3 与 DeepSeek** 的模块化知识库问答项目，提供传统 RAG 与 Agentic RAG 命令行入口，以及 FastAPI + Streamlit 本地 Web Demo。Agent 可使用 `knowledge_search` 和 `list_knowledge_sources` 工具，按 Tool Schema 校验参数，并在单个问题中最多进行六轮工具调用；会话保留最近六轮问答。
 
 ## 功能
 
-- **结构化知识摄取**：加载 Markdown 文档并按二级标题拆分，保留来源路径与文档类型等元数据。
-- **语义向量化**：通过 SiliconFlow 调用 BGE-M3，将知识片段编码为向量表示。
-- **持久化知识索引**：使用 Chroma 保存向量与文档内容，支持新增片段及更新已变化内容。
-- **混合检索**：融合标题关键词命中与向量相似度搜索，优先保留标题匹配结果并对重复片段去重。
-- **基于证据的答案生成**：将检索片段作为上下文交给 DeepSeek，生成回答并整理实际引用的资料来源。
-- **Schema 驱动的 Agent 工具调用**：由 DeepSeek 在 `knowledge_search` 与 `list_knowledge_sources` 之间选择，程序通过注册表和执行器完成分发。
-- **工具参数校验与结果回传**：执行前依据 Tool Schema 检查参数对象、必填字段、未定义字段和基本类型，再将工具结果回传模型生成答复。
-- **有限上下文对话与迭代式工具编排**：在当前会话中保留最近六轮问答，结合对话历史解析指代与连续追问；单个问题最多执行六轮工具调用，并将每轮结果纳入后续决策，达到上限后基于已有证据生成答复。
-- **双模式命令行体验**：分别通过 `rag_qa.py` 使用传统 RAG，或通过 `agent_qa.py` 使用 Agentic RAG。
-- **配置校验与服务错误处理**：启动时检查所需 API Key，并对 Embedding、LLM 服务错误提供统一异常处理。
-- **自动化质量检查**：使用 Pytest 覆盖核心模块；默认测试与真实外部 API 集成测试分开运行。
-## 知识库文档
-
-`data/documents/` 中目前包含以下 Markdown 知识文档，程序启动时会读取并按二级标题切分：
-
-- `agent_intro.md`：Agent、RAG、Embedding、向量数据库和 Agent 执行循环基础。
-- `rag_intro.md`：RAG 定义、基本流程、优点和局限。
-- `rag_build_intro.md`：RAG 搭建总览、切分、Embedding、向量存储、检索、回答生成与评估。
-- `agentic_rag_build_intro.md`：Agentic RAG 流程、工具 Schema、Registry、Executor、结果回传和评估。
-
-新增或修改文档后，下次运行入口时会将新增或变化的片段同步到本地 Chroma。当前同步逻辑处理新增和更新；删除 Markdown 文件不会自动清理 Chroma 中对应的旧片段。
+- Markdown 知识文档按二级标题切分；Web 上传支持 Markdown 和 UTF-8 TXT，TXT 按段落及最大块长拆分。
+- SiliconFlow BGE-M3 Embedding 与本地持久化 Chroma。
+- 标题关键词优先结合向量相似度的混合检索。
+- DeepSeek grounded answer generation、工具选择和工具结果迭代。
+- Tool Schema、Registry、参数校验、Executor 与 Agent Loop。
+- FastAPI 提供健康检查、Agent/传统 RAG 问答、SSE 流式回答、上传、列表、原文预览和会话清理接口。
+- Streamlit 左侧提供文档上传与只读列表、Agent/RAG 模式开关；点击文档名后，原文在主内容区预览，并支持流式聊天、引用来源、结构化工具调用过程和清空会话。
+- 上传限制文件类型、UTF-8 内容、文件大小及文件名；同名上传按文档更新处理，并清理旧向量。
+- 按 session UUID 隔离对话历史；历史保存在 API 进程内，最长保留 24 小时，服务重启后清空。
+- 原有 `rag_qa.py` 和 `agent_qa.py` 命令行入口保留。
 
 ## 架构
 
-### 传统 RAG：`rag_qa.py`
-
 ```text
-data/documents/*.md
-        ↓
-Document Loader：读取并按标题切分
-        ↓
-BGE-M3 Embedding（SiliconFlow）
-        ↓
-Chroma：本地持久化与文档同步
-        ↓
-Hybrid Retriever：标题关键词匹配 + 向量搜索
-        ↓
-检索资料 → DeepSeek（生成答案）→ 答案与引用来源
+Browser → Streamlit (8501) → FastAPI (8000)
+                                  ├─ KnowledgeService
+                                  ├─ Agent / Tool Registry / Executor
+                                  ├─ Hybrid Retriever → Chroma (persistent)
+                                  └─ SiliconFlow BGE-M3 + DeepSeek APIs
 ```
 
-### Agentic RAG：`agent_qa.py`
+Web 知识库包含 `data/documents/` 中的内置 Markdown 文件和用户上传文档。上传文件存放在 `data/uploads/`，上传清单记录片段 ID；Chroma 和上传文件均为本地持久化数据，默认路径可通过环境变量修改。当前 Web API 只提供文档列表和原文预览，没有文档删除接口。
 
-```text
-用户问题 → DeepSeek 工具选择（TOOL_SCHEMAS）
-                         ↓
-          Tool Registry（名称映射与查找）
-                         ↓
-          Tool Executor（参数分发与执行）
-             ↙                         ↘
-knowledge_search              list_knowledge_sources
-             ↘                         ↙
-         工具结果加入对话 → 最多六轮工具调用 → DeepSeek 生成最终回答
-```
+Agent 提供两个工具：`knowledge_search` 进行混合检索，`list_knowledge_sources` 查看可用文档来源。Web UI 会展示当轮工具调用和检索来源。引用来源以文档名显示，不向 Web 响应暴露服务器绝对路径。
 
-Agent 当前提供两个工具：`knowledge_search` 使用混合检索查找知识库内容并返回内容及来源；`list_knowledge_sources` 返回已加载文档的来源列表。`src/agent.py` 负责将工具 Schema 提供给模型、执行模型请求、调用 Executor，并将工具结果交回模型继续决策，最多循环六轮；达到上限后要求模型基于已有结果直接回答。如果模型未选择工具，则直接返回模型回复。
+## 需求与安装
 
-## 项目结构
-
-```text
-.
-├── data/documents/              # Markdown 知识库
-├── src/
-│   ├── agent.py                 # Agent 工具选择与调用循环
-│   ├── config.py                # 配置与启动校验
-│   ├── document_loader.py       # Markdown 加载与切分
-│   ├── embeddings.py            # BGE-M3 Embedding
-│   ├── exceptions.py            # 自定义服务异常
-│   ├── logger.py                # 日志配置
-│   ├── rag_chain.py             # DeepSeek 与答案、引用生成
-│   ├── retriever.py              # 混合检索
-│   ├── tool_registry.py         # 工具注册与查找
-│   ├── tool_schemas.py          # 发给模型的工具 Schema
-│   ├── tools.py                 # 知识搜索与来源列表工具
-│   └── vector_store.py          # Chroma 创建与文档同步
-├── tests/                       # 单元测试与集成测试
-├── agent_qa.py                  # Agentic RAG 命令行入口
-├── rag_qa.py                    # 传统 RAG 命令行入口
-├── requirements.txt
-├── pytest.ini
-└── .env.example                 # 环境变量名称示例
-```
-
-## 环境准备
-
-需要 **Python 3.12**。从项目目录执行：
-
-```bash
-git clone https://github.com/Zeng0713/Agentic-RAG-Orchestrator.git
-cd Agentic-RAG-Orchestrator
-python -m venv .venv
-```
-
-激活虚拟环境：
+需要 **Python 3.12**。在仓库根目录运行：
 
 ```powershell
-# Windows PowerShell
+python -m venv .venv
 .venv\Scripts\Activate.ps1
-```
-
-```bash
-# macOS / Linux
-source .venv/bin/activate
-```
-
-安装依赖：
-
-```bash
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-## 配置
-
-将 `.env.example` 复制为项目根目录下的 `.env`，并填入你自己的 API Key：
+复制 `.env.example` 为 `.env`，填写你自己的服务密钥：
 
 ```dotenv
 SILICONFLOW_API_KEY=your_siliconflow_api_key
 DEEPSEEK_API_KEY=your_deepseek_api_key
 ```
 
-- `SILICONFLOW_API_KEY`：调用 SiliconFlow 上的 BGE-M3 Embedding 服务。
-- `DEEPSEEK_API_KEY`：调用 DeepSeek 对话模型及工具调用。
+真实 Key 只从环境变量或本地 `.env` 读取。`.env` 和 `data/uploads/`、Chroma 数据目录均被 `.gitignore` 忽略；请勿提交密钥。可选配置：
 
-项目当前将模型名、服务地址和 Chroma 路径设为 `src/config.py` 中的固定值；只有以上两个 API Key 从环境变量读取。`.env` 已加入 `.gitignore`，请勿提交实际密钥。
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `CHROMA_DB_PATH` | `./chroma_db` | Chroma 持久化目录 |
+| `UPLOADS_DIR` | `data/uploads` | 上传原文和索引清单目录 |
+| `MAX_UPLOAD_SIZE_MB` | `5` | 单文件上限 |
+| `MAX_QUESTION_LENGTH` | `2000` | 问题字符数上限 |
+| `CHAT_REQUESTS_PER_MINUTE` | `20` | 每会话每分钟问答上限 |
+| `UPLOADS_PER_MINUTE` | `5` | 每分钟上传请求上限（单进程全局） |
 
-## 运行
+## 启动 Web Demo
 
-请先将 Markdown 知识文件放入 `data/documents/`。两种入口启动时都会检查配置、加载文档、创建 Embedding 和 Chroma，并同步知识库；首次运行需要访问对应外部 API。
+在项目根目录打开两个 PowerShell 终端并激活同一虚拟环境。
 
-传统 RAG 问答：
+终端一启动 API：
 
-```bash
+```powershell
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+
+终端二启动 Streamlit：
+
+```powershell
+python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501
+```
+
+浏览器打开 Streamlit 显示的本地地址（通常为 `http://localhost:8501`）。API 仅绑定本机回环地址；首次上传或问答会调用外部 Embedding/LLM API，可能产生相应的第三方 API 用量。Swagger 接口文档可在 API 启动后通过 `http://127.0.0.1:8000/docs` 查看。
+
+API 响应采用统一结构：
+
+```json
+{"success": true, "message": "ok", "data": {}, "error": null}
+```
+
+错误响应设置相应 HTTP 状态码，包含 `success: false` 和可读错误信息；服务端异常不会向响应返回 SDK 错误内容或密钥。
+
+### API 路由
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/health` | 健康检查 |
+| `POST` | `/chat` | JSON 问答，需 `session_id` 与 `question`，`mode` 可选 `agent`/`rag` |
+| `POST` | `/chat/stream` | SSE 流式问答，支持 Agent 工具过程事件及普通 RAG 模式 |
+| `POST` | `/documents/upload` | 上传 Markdown 或 TXT |
+| `GET` | `/documents` | 查看内置和上传的文档 |
+| `GET` | `/documents/{document_id}` | 读取文档原文用于页面预览 |
+| `DELETE` | `/sessions/{session_id}` | 清空指定会话 |
+
+API 的频率限制和会话存储均在单进程内；服务重启会清空对话历史。当前版本是本地演示应用，没有用户登录/身份认证，不应直接暴露到公网。公开部署前需要加访问控制，并将限流替换为可共享的存储/网关策略；公网部署和云资源不在本阶段范围内。
+
+## CLI 使用
+
+在 `data/documents/` 放入 Markdown 文档后运行：
+
+```powershell
 python rag_qa.py
 ```
 
-Agentic RAG 问答：
+传统 RAG 只检索并生成回答。Agentic RAG 命令行入口：
 
-```bash
+```powershell
 python agent_qa.py
 ```
 
-按程序提示输入问题。Agent 会在当前进程中保留最近六轮问答上下文，支持结合前文理解追问；退出程序后历史清空。输入 `exit` 或 `退出` 可以结束 Agent；空问题会提示重新输入。知识库为空时，Agent 会提示先添加 Markdown 文档；Embedding 或 DeepSeek 服务临时不可用时会提示重试，不会直接结束交互程序。
+两种 CLI 入口继续使用相同的知识库、Embedding、Chroma、Retriever 和 DeepSeek 配置。CLI 读取知识库 Markdown 文件；在线上传管理在 Web 应用中执行。
 
-## 测试与覆盖率
+## 测试
 
-默认测试是离线测试，不运行标记为 `integration` 的外部服务测试：
+离线单元测试（默认排除真实外部 API 集成测试）：
 
-```bash
-pytest
+```powershell
+python -m pytest
 ```
 
-本地查看源码覆盖率：
+覆盖率：
 
-```bash
-pytest --cov=src --cov-report=term-missing
+```powershell
+python -m pytest --cov=src --cov=api --cov=app --cov-report=term-missing --cov-report=xml
 ```
 
-只运行集成测试（需要有效的 SiliconFlow / DeepSeek API Key、网络连接及相应服务可用）：
+真实服务集成测试需有效的 SiliconFlow/DeepSeek API Key、网络和服务可用性：
 
-```bash
-pytest -o addopts= -m integration
+```powershell
+python -m pytest -o addopts= -m integration
 ```
 
-当前仓库验证结果：默认测试 **48 passed, 4 deselected**，`src/` 模块覆盖率 **96%（249 statements，10 missed）**；该数字仅统计 `src/`，不包含根目录下的 CLI 入口脚本。最近验证日期：2026-10-30。本轮仅运行默认离线测试；集成测试需单独运行。
+集成测试可能产生第三方 API 用量。GitHub Actions 使用 Python 3.12，执行离线测试，并上传 `coverage.xml`。工作流结果请查看上方徽章；README 不预设远程 CI 当前状态。
 
-## CI
+## 当前知识库文档
 
-GitHub Actions 工作流位于 `.github/workflows/tests.yml`，在推送到 `main`、针对 `main` 的 Pull Request 以及手动触发时运行。工作流使用 Python 3.12，安装 `requirements.txt` 中的依赖，执行带覆盖率报告的默认（非集成）测试，并上传 `coverage.xml` Artifact。
+`data/documents/` 当前包含：
 
-上方徽章链接到 [`Zeng0713/Agentic-RAG-Orchestrator` 的 Tests 工作流](https://github.com/Zeng0713/Agentic-RAG-Orchestrator/actions/workflows/tests.yml)，可在那里查看最新运行状态；本 README 不预设 CI 当前是否通过。
+- `agent_intro.md`：Agent、RAG、Embedding、向量数据库和执行循环基础。
+- `rag_intro.md`：RAG 定义、基本流程、优点和局限。
+- `rag_build_intro.md`：RAG 搭建、切分、向量化、存储、检索、生成与评估。
+- `agentic_rag_build_intro.md`：Agentic RAG 流程、工具调用和评估。

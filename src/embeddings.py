@@ -20,8 +20,8 @@ class SafeOpenAIEmbeddings(OpenAIEmbeddings):
 
         except Exception as error:
             logger.error(
-                "Embedding API 查询调用失败：%s",
-                error,
+                "Embedding API 查询调用失败（%s）",
+                type(error).__name__,
             )
 
             raise EmbeddingServiceError(
@@ -37,8 +37,8 @@ class SafeOpenAIEmbeddings(OpenAIEmbeddings):
 
         except Exception as error:
             logger.error(
-                "Embedding API 文档调用失败：%s",
-                error,
+                "Embedding API 文档调用失败（%s）",
+                type(error).__name__,
             )
 
             raise EmbeddingServiceError(

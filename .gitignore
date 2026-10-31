@@ -13,6 +13,7 @@ __pycache__/
 # Chroma generated database
 chroma_db/
 chroma_db_backup/
+data/uploads/
 
 .coverage
 coverage.xml

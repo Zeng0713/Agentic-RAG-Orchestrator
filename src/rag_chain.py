@@ -24,6 +24,7 @@ def generate_answer(
     question,
     retrieved_docs,
     llm,
+    on_token=None,
 ):
     """
     根据检索到的参考资料，
@@ -75,14 +76,34 @@ def generate_answer(
 请根据以上规则回答：
 """
     try:
-        response = llm.invoke(prompt)
+        if on_token is not None and hasattr(llm, "stream"):
+            parts = []
+            for chunk in llm.stream(prompt):
+                content = chunk.content
+                if isinstance(content, str):
+                    text = content
+                elif isinstance(content, list):
+                    text = "".join(
+                        item.get("text", "")
+                        for item in content
+                        if isinstance(item, dict) and item.get("type") == "text"
+                    )
+                else:
+                    text = ""
+                if text:
+                    parts.append(text)
+                    on_token(text)
+            return "".join(parts)
 
+        response = llm.invoke(prompt)
+        if on_token is not None and isinstance(response.content, str):
+            on_token(response.content)
         return response.content
 
     except Exception as error:
         logger.error(
-            "DeepSeek API 调用失败：%s",
-            error,
+            "DeepSeek API 调用失败（%s）",
+            type(error).__name__,
         )
 
         raise LLMServiceError(

@@ -6,6 +6,40 @@ MAX_TOOL_ROUNDS = 6
 MAX_CONVERSATION_TURNS = 6
 
 
+def _message_text(content):
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(
+            item.get("text", "")
+            for item in content
+            if isinstance(item, dict) and item.get("type") == "text"
+        )
+    return ""
+
+
+def _invoke(llm, messages, tools=None, on_token=None):
+    kwargs = {"tools": tools} if tools is not None else {}
+    if on_token is None:
+        return llm.invoke(messages, **kwargs)
+    if not hasattr(llm, "stream"):
+        response = llm.invoke(messages, **kwargs)
+        text = _message_text(response.content)
+        if text:
+            on_token(text)
+        return response
+
+    response = None
+    for chunk in llm.stream(messages, **kwargs):
+        response = chunk if response is None else response + chunk
+        text = _message_text(chunk.content)
+        if text:
+            on_token(text)
+    if response is None:
+        return llm.invoke(messages, **kwargs)
+    return response
+
+
 def add_conversation_turn(history, question, answer):
     """Append one completed exchange and retain only the latest turns."""
     history.extend([
@@ -113,6 +147,8 @@ def run_agent(
     documents,
     vector_store,
     history=None,
+    on_tool_event=None,
+    on_token=None,
 ):
     messages = [
         {
@@ -138,9 +174,11 @@ def run_agent(
     messages.append({"role": "user", "content": question})
 
     for _ in range(MAX_TOOL_ROUNDS):
-        response = llm.invoke(
+        response = _invoke(
+            llm,
             messages,
             tools=TOOL_SCHEMAS,
+            on_token=on_token,
         )
 
         if not response.tool_calls:
@@ -154,6 +192,13 @@ def run_agent(
                 documents=documents,
                 vector_store=vector_store,
             )
+
+            if on_tool_event:
+                on_tool_event({
+                    "tool": tool_call.get("name", "unknown"),
+                    "arguments": tool_call.get("args", {}),
+                    "result": result,
+                })
 
             messages.append(
                 {
@@ -175,5 +220,5 @@ def run_agent(
             ),
         }
     )
-    final_response = llm.invoke(messages)
+    final_response = _invoke(llm, messages, on_token=on_token)
     return final_response.content

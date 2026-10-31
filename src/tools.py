@@ -1,4 +1,10 @@
+from pathlib import Path
+
 from src.retriever import retrieve_documents
+
+
+def _display_source(source):
+    return Path(str(source).replace("\\", "/")).name or "未知来源"
 
 def knowledge_search(
     question,
@@ -28,6 +34,8 @@ def knowledge_search(
             }
         )
 
+        results[-1]["source"] = _display_source(results[-1]["source"])
+
     return results
 
 def list_knowledge_sources(documents):
@@ -39,7 +47,8 @@ def list_knowledge_sources(documents):
             "未知来源",
         )
 
-        if source not in sources:
-            sources.append(source)
+        display_source = _display_source(source)
+        if display_source not in sources:
+            sources.append(display_source)
 
     return sources

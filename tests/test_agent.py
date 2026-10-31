@@ -1,5 +1,6 @@
 import pytest
 from langchain_core.documents import Document
+from langchain_core.messages import AIMessageChunk
 
 import src.agent as agent
 
@@ -119,14 +120,55 @@ def test_run_agent_with_tool(monkeypatch):
         fake_execute_tool,
     )
 
+    tool_events = []
     result = agent.run_agent(
         question="什么是 RAG？",
         llm=llm,
         documents=[],
         vector_store=None,
+        on_tool_event=tool_events.append,
     )
 
     assert result == "RAG 是检索增强生成。"
+    assert tool_events == [{
+        "tool": "knowledge_search",
+        "arguments": {"question": "什么是 RAG？"},
+        "result": [{"content": "RAG 是检索增强生成。", "source": "rag_intro.md"}],
+    }]
+
+
+def test_run_agent_streams_final_answer_after_tool_call(monkeypatch):
+    class StreamingFakeLLM:
+        def __init__(self):
+            self.responses = [
+                [AIMessageChunk(content="", tool_call_chunks=[{
+                    "name": "knowledge_search",
+                    "args": '{"question":"什么是 RAG？"}',
+                    "id": "call_stream_1",
+                    "index": 0,
+                }])],
+                [AIMessageChunk(content="RAG 是"), AIMessageChunk(content="检索增强生成。")],
+            ]
+
+        def stream(self, _messages, **_kwargs):
+            return iter(self.responses.pop(0))
+
+    monkeypatch.setattr(
+        agent,
+        "execute_tool",
+        lambda *_args, **_kwargs: [{"content": "RAG 定义", "source": "rag.md"}],
+    )
+    streamed = []
+    result = agent.run_agent(
+        "什么是 RAG？",
+        StreamingFakeLLM(),
+        [],
+        None,
+        on_token=streamed.append,
+    )
+
+    assert result == "RAG 是检索增强生成。"
+    assert streamed == ["RAG 是", "检索增强生成。"]
 
 
 def test_run_agent_handles_multiple_tool_rounds(monkeypatch):

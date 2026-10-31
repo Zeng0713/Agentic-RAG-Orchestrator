@@ -1,4 +1,4 @@
-from src.document_loader import load_documents
+from src.document_loader import load_documents, parse_document_text
 
 
 def test_load_documents(tmp_path):
@@ -88,3 +88,18 @@ def test_loads_project_knowledge_documents():
         "Agentic RAG 搭建流程总览" in document.page_content
         for document in documents
     )
+
+
+def test_parse_uploaded_markdown_and_txt_chunks():
+    markdown = parse_document_text(
+        "guide.md",
+        "## First\n" + ("A" * 1800) + "\n\n## Second\nShort",
+        chunk_size=500,
+    )
+    text = parse_document_text("notes.txt", "A" * 1700, chunk_size=500)
+
+    assert len(markdown) >= 4
+    assert all(len(chunk.page_content) <= 500 for chunk in markdown)
+    assert all(chunk.metadata["source"] == "guide.md" for chunk in markdown)
+    assert len(text) == 4
+    assert all(len(chunk.page_content) <= 500 for chunk in text)
