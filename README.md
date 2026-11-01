@@ -14,7 +14,9 @@
 - DeepSeek grounded answer generation、工具选择和工具结果迭代。
 - Tool Schema、Registry、参数校验、Executor 与 Agent Loop。
 - FastAPI 提供健康检查、Agent/传统 RAG 问答、SSE 流式回答、上传、列表、原文预览和会话清理接口。
-- Streamlit 左侧提供文档上传与只读列表、Agent/RAG 模式开关；点击文档名后，原文在主内容区预览，并支持流式聊天、引用来源、结构化工具调用过程和清空会话。
+- Streamlit 使用暗色主题、自定义 Hero 标题和文档卡片；新会话提供 RAG 基础、混合检索、RAG 搭建流程及 Agentic RAG 预设问题，点击即可进入现有问答流程。
+- Streamlit 左侧提供文档上传与只读列表、Agent/RAG 模式开关；点击文档名后，原文在主内容区预览。聊天支持流式回答、清空会话，并在 `st.status` 中展示 Agent 工具、参数和检索片段数量。
+- 回答引用以可展开面板展示来源和实际检索到的原始 chunk，方便查看答案依据。
 - 上传限制文件类型、UTF-8 内容、文件大小及文件名；同名上传按文档更新处理，并清理旧向量。
 - 按 session UUID 隔离对话历史；历史保存在 API 进程内，最长保留 24 小时，服务重启后清空。
 - 原有 `rag_qa.py` 和 `agent_qa.py` 命令行入口保留。
@@ -32,6 +34,13 @@ Browser → Streamlit (8501) → FastAPI (8000)
 Web 知识库包含 `data/documents/` 中的内置 Markdown 文件和用户上传文档。上传文件存放在 `data/uploads/`，上传清单记录片段 ID；Chroma 和上传文件均为本地持久化数据，默认路径可通过环境变量修改。当前 Web API 只提供文档列表和原文预览，没有文档删除接口。
 
 Agent 提供两个工具：`knowledge_search` 进行混合检索，`list_knowledge_sources` 查看可用文档来源。Web UI 会展示当轮工具调用和检索来源。引用来源以文档名显示，不向 Web 响应暴露服务器绝对路径。
+
+### Web UI 交互
+
+- 空白会话显示四个预设问题；点击问题会直接发起 Agent 或传统 RAG 问答。开始对话后预设问题隐藏，清空会话后重新显示。
+- Agent 模式通过状态面板逐项展示工具调用名称、参数、检索到的片段数和来源；传统 RAG 模式不显示 Agent 工具轨迹。
+- 回答下方的引用面板可以展开查看来源文件名和原始检索片段；文档列表保持只读，不提供文档删除操作。
+- 页面采用深色配色和自定义样式，聊天输入框支持直接提问；也可点击左侧文档，在主内容区查看原文。
 
 ## 需求与安装
 
@@ -59,8 +68,8 @@ DEEPSEEK_API_KEY=your_deepseek_api_key
 | `UPLOADS_DIR` | `data/uploads` | 上传原文和索引清单目录 |
 | `MAX_UPLOAD_SIZE_MB` | `5` | 单文件上限 |
 | `MAX_QUESTION_LENGTH` | `2000` | 问题字符数上限 |
-| `CHAT_REQUESTS_PER_MINUTE` | `20` | 每会话每分钟问答上限 |
-| `UPLOADS_PER_MINUTE` | `5` | 每分钟上传请求上限（单进程全局） |
+| `CHAT_REQUESTS_PER_MINUTE` | `20` | 每个客户端 IP 与 Session ID 组合每分钟问答上限（单进程内计数） |
+| `UPLOADS_PER_MINUTE` | `5` | 每个客户端 IP 每分钟上传请求上限（单进程内计数） |
 
 ## 启动 Web Demo
 
