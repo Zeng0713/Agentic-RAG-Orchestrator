@@ -4,8 +4,8 @@ import logging
 import json
 import threading
 import time
-from collections import defaultdict, deque
-from queue import Queue
+from contextlib import asynccontextmanager
+from queue import Empty, Full, Queue
 from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
@@ -15,15 +15,36 @@ from pydantic import BaseModel, Field
 
 from src.config import (
     CHAT_REQUESTS_PER_MINUTE,
+    CHAT_IP_REQUESTS_PER_MINUTE,
     MAX_QUESTION_LENGTH,
     MAX_UPLOAD_SIZE_MB,
     UPLOADS_PER_MINUTE,
 )
 from src.exceptions import EmbeddingServiceError, LLMServiceError
 from src.services.knowledge_service import KnowledgeService
+from src.rate_limiter import MemoryRateLimiter as RateLimiter
+from src.state_backends import StateBackends
+from src.session_store import normalize_session_id
+from src.state_runtime import StateError
 
 logger = logging.getLogger("rag_project")
-app = FastAPI(title="Agentic RAG Orchestrator API", version="1.0.0")
+
+
+@asynccontextmanager
+async def lifespan(_app):
+    global _backends, _limiter, _service
+    _backends = StateBackends()
+    _limiter = _backends.limiter
+    try:
+        yield
+    finally:
+        _backends.close()
+        _backends = None
+        _service = None
+        _limiter = RateLimiter()
+
+
+app = FastAPI(title="Agentic RAG Orchestrator API", version="1.0.0", lifespan=lifespan)
 
 
 class ChatRequest(BaseModel):
@@ -32,45 +53,19 @@ class ChatRequest(BaseModel):
     mode: Literal["agent", "rag"] = "agent"
 
 
-class RateLimiter:
-    def __init__(self):
-        self._requests = defaultdict(deque)
-        self._lock = threading.Lock()
-        self._calls = 0
-
-    def allow(self, key, limit, window=60):
-        now = time.monotonic()
-        with self._lock:
-            self._calls += 1
-            if self._calls % 256 == 0 and len(self._requests) > 10000:
-                stale = [
-                    tracked_key
-                    for tracked_key, timestamps in self._requests.items()
-                    if not timestamps or now - timestamps[-1] >= window
-                ]
-                for tracked_key in stale:
-                    self._requests.pop(tracked_key, None)
-                if len(self._requests) > 10000:
-                    oldest = sorted(
-                        self._requests,
-                        key=lambda tracked_key: self._requests[tracked_key][-1]
-                        if self._requests[tracked_key]
-                        else 0,
-                    )[:len(self._requests) - 10000]
-                    for tracked_key in oldest:
-                        self._requests.pop(tracked_key, None)
-            recent = self._requests[key]
-            while recent and now - recent[0] >= window:
-                recent.popleft()
-            if len(recent) >= limit:
-                return False
-            recent.append(now)
-            return True
-
-
 _limiter = RateLimiter()
 _service = None
 _service_lock = threading.Lock()
+_backends = None
+_state_lock = threading.Lock()
+
+
+def get_state_backends():
+    global _backends
+    with _state_lock:
+        if _backends is None:
+            _backends = StateBackends()
+        return _backends
 
 
 @app.middleware("http")
@@ -88,7 +83,10 @@ def get_knowledge_service():
     global _service
     with _service_lock:
         if _service is None:
-            _service = KnowledgeService()
+            _service = KnowledgeService(
+                session_store=get_state_backends().sessions,
+                chat_deadline=get_state_backends().settings.chat_deadline,
+            )
         return _service
 
 
@@ -96,17 +94,25 @@ def success(data, message="ok"):
     return {"success": True, "message": message, "data": data, "error": None}
 
 
-def error_response(message, status_code):
+def error_response(message, status_code, code=None, headers=None):
     return JSONResponse(
         status_code=status_code,
-        content={"success": False, "message": "request failed", "data": None, "error": message},
+        content={"success": False, "message": "request failed", "data": None, "error": message,
+                 "error_code": code or "REQUEST_FAILED"},
+        headers=headers,
     )
 
 
 @app.exception_handler(HTTPException)
 async def handle_http_exception(_request, exc):
     message = exc.detail if isinstance(exc.detail, str) else "请求无效"
-    return error_response(message, exc.status_code)
+    return error_response(message, exc.status_code,
+                          "RATE_LIMITED" if exc.status_code == 429 else None, exc.headers)
+
+
+@app.exception_handler(StateError)
+async def handle_state_error(_request, exc):
+    return error_response(str(exc), exc.status_code, exc.code)
 
 
 @app.exception_handler(RequestValidationError)
@@ -126,16 +132,46 @@ def _rate_key(request, session_id=None):
     return f"{host}:{session_id or ''}"
 
 
+def check_limit(limits):
+    decision = _limiter.check(limits)
+    if not decision.allowed:
+        raise HTTPException(status_code=429, detail="请求过于频繁，请稍后再试",
+                            headers={"Retry-After": str(decision.retry_after)})
+
+
+def check_chat_limit(request, session_id):
+    try:
+        sid = normalize_session_id(session_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    check_limit([
+        ("chat-session:" + _rate_key(request, sid), CHAT_REQUESTS_PER_MINUTE),
+        ("chat-ip:" + _rate_key(request), CHAT_IP_REQUESTS_PER_MINUTE),
+    ])
+
+
+def chat_admission(payload: ChatRequest, request: Request):
+    # Execute before constructing the knowledge service or touching providers.
+    check_chat_limit(request, payload.session_id)
+
+
+def upload_admission(request: Request):
+    check_limit([("upload:" + _rate_key(request), UPLOADS_PER_MINUTE)])
+
+
+@app.get("/ready")
+def ready():
+    get_state_backends().ready()
+    return success({"status": "ready"})
+
+
 @app.get("/health")
 def health():
     return success({"status": "ok"})
 
 
-@app.post("/chat")
+@app.post("/chat", dependencies=[Depends(chat_admission)])
 def chat(payload: ChatRequest, request: Request, service=Depends(get_knowledge_service)):
-    key = _rate_key(request, payload.session_id)
-    if not _limiter.allow(key, CHAT_REQUESTS_PER_MINUTE):
-        raise HTTPException(status_code=429, detail="提问过于频繁，请稍后再试")
     try:
         result = service.chat(
             payload.session_id,
@@ -149,77 +185,103 @@ def chat(payload: ChatRequest, request: Request, service=Depends(get_knowledge_s
     return success(result)
 
 
-@app.post("/chat/stream")
-def chat_stream(
-    payload: ChatRequest,
-    request: Request,
-    service=Depends(get_knowledge_service),
-):
-    key = _rate_key(request, payload.session_id)
-    if not _limiter.allow(key, CHAT_REQUESTS_PER_MINUTE):
-        raise HTTPException(status_code=429, detail="提问过于频繁，请稍后再试")
+@app.post("/chat/stream", dependencies=[Depends(chat_admission)])
+def chat_stream(payload: ChatRequest, request: Request, service=Depends(get_knowledge_service)):
+    events = Queue(maxsize=64)
+    cancelled = threading.Event()
+    finished = threading.Event()
+    deadline = time.monotonic() + getattr(service, "chat_deadline", 300)
 
-    events = Queue()
-
-    def emit(event):
-        encoded = json.dumps(event, ensure_ascii=False)
-        return f"data: {encoded}\n\n"
+    def enqueue(event):
+        while not cancelled.is_set():
+            if time.monotonic() >= deadline:
+                raise StateError("问答处理超时，请稍后重试")
+            try:
+                events.put(event, timeout=0.25)
+                return
+            except Full:
+                continue
+        raise StateError("请求已中断")
 
     def run_chat():
         try:
             result = service.chat(
-                payload.session_id,
-                payload.question,
-                mode=payload.mode,
-                on_token=lambda token: events.put({"type": "token", "text": token}),
-                on_tool_event=lambda event: events.put({
-                    "type": "tool",
-                    "tool": event.get("tool", "unknown"),
+                payload.session_id, payload.question, mode=payload.mode,
+                on_ready=lambda: enqueue({"type": "ready"}),
+                cancelled=cancelled,
+                on_token=lambda token: enqueue({"type": "token", "text": token}),
+                on_tool_event=lambda event: enqueue({
+                    "type": "tool", "tool": event.get("tool", "unknown"),
                     "arguments": event.get("arguments", {}),
                     "result_count": len(event.get("result", []))
                     if isinstance(event.get("result"), list) else 0,
-                    "sources": [
-                        item.get("source")
-                        for item in event.get("result", [])
-                        if isinstance(item, dict) and item.get("source")
-                    ] if isinstance(event.get("result"), list) else [],
+                    "sources": [item.get("source") for item in event.get("result", [])
+                                if isinstance(item, dict) and item.get("source")]
+                    if isinstance(event.get("result"), list) else [],
                 }),
             )
-            events.put({
-                "type": "done",
-                "sources": result["sources"],
-                "chunks": result["retrieved_chunks"],
-                "mode": result["mode"],
-            })
+            enqueue({"type": "done", "sources": result["sources"],
+                     "chunks": result["retrieved_chunks"], "mode": result["mode"],
+                     "history_status": result.get("history_status", "saved"),
+                     "warning": result.get("warning"), "request_id": result.get("request_id")})
         except Exception as exc:
-            logger.error("流式问答失败（%s）", type(exc).__name__)
-            events.put({"type": "error", "message": "服务暂时不可用，请稍后重试"})
+            logger.warning("stream_failed error_type=%s", type(exc).__name__)
+            if isinstance(exc, StateError):
+                status, code, message = exc.status_code, exc.code, str(exc)
+            elif isinstance(exc, ValueError):
+                status, code, message = 400, "INVALID_REQUEST", str(exc)
+            else:
+                status, code, message = 503, "GENERATION_FAILED", "问答服务暂时不可用，请稍后重试"
+            if not cancelled.is_set():
+                try:
+                    events.put({"type": "error", "message": message, "error_code": code, "status": status},
+                               timeout=0.1)
+                except Full:
+                    pass
         finally:
-            events.put(None)
+            finished.set()
+
+    threading.Thread(target=run_chat, daemon=True).start()
+    try:
+        first = events.get(timeout=5)
+    except Empty:
+        cancelled.set()
+        raise StateError("会话初始化超时，请稍后重试") from None
+    if not first or first.get("type") != "ready":
+        cancelled.set()
+        return error_response(first.get("message", "服务暂时不可用") if first else "服务暂时不可用",
+                              first.get("status", 503) if first else 503,
+                              first.get("error_code") if first else None)
 
     def event_stream():
-        threading.Thread(target=run_chat, daemon=True).start()
-        while True:
-            event = events.get()
-            if event is None:
-                break
-            yield emit(event)
+        try:
+            while True:
+                try:
+                    event = events.get(timeout=10)
+                except Empty:
+                    if finished.is_set():
+                        yield "data: " + json.dumps({"type": "error", "message": "回答未完成，请重试"}, ensure_ascii=False) + "\n\n"
+                        break
+                    yield ": keepalive\n\n"
+                    continue
+                if event is None:
+                    break
+                yield "data: " + json.dumps(event, ensure_ascii=False) + "\n\n"
+                if event.get("type") in {"done", "error"}:
+                    break
+        finally:
+            cancelled.set()
 
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
+    return StreamingResponse(event_stream(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
-@app.post("/documents/upload")
+@app.post("/documents/upload", dependencies=[Depends(upload_admission)])
 def upload_document(
     request: Request,
     file: UploadFile,
     service=Depends(get_knowledge_service),
 ):
-    if not _limiter.allow(_rate_key(request), UPLOADS_PER_MINUTE):
-        raise HTTPException(status_code=429, detail="上传过于频繁，请稍后再试")
     max_bytes = MAX_UPLOAD_SIZE_MB * 1024 * 1024
     content = file.file.read(max_bytes + 1)
     if len(content) > max_bytes:

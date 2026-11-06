@@ -34,7 +34,7 @@ class FakeLLM:
     def __init__(self):
         self.messages = []
 
-    def invoke(self, messages, tools=None):
+    def invoke(self, messages, tools=None, **kwargs):
         self.messages.append(list(messages))
         return type("Response", (), {"content": "基于知识库的回答", "tool_calls": []})()
 
@@ -117,7 +117,7 @@ def test_rag_mode_streams_answer_and_returns_only_cited_sources(tmp_path, monkey
     )
     monkeypatch.setattr(service_module, "retrieve_documents", lambda *_args: [source_doc])
 
-    def fake_generate_answer(_question, _docs, _llm, on_token=None):
+    def fake_generate_answer(_question, _docs, _llm, on_token=None, history=None):
         if on_token:
             on_token("RAG 是检索增强生成 [资料 1]。")
         return "RAG 是检索增强生成 [资料 1]。"
@@ -161,3 +161,24 @@ def test_chroma_data_persists_after_reopening(tmp_path):
     reopened = create_vector_store(FakeEmbeddings(), db_path=path)
 
     assert reopened.get()["ids"] == ["persistent_0"]
+
+
+def test_upload_precomputes_vectors_and_chroma_retrieval_uses_them(tmp_path):
+    class LocalEmbeddings:
+        def __init__(self):
+            self.writes = 0
+
+        def embed_documents(self, texts):
+            self.writes += 1
+            return [[float(len(text)), 1.0, 0.0] for text in texts]
+
+        def embed_query(self, text):
+            return [float(len(text)), 1.0, 0.0]
+
+    embeddings = LocalEmbeddings()
+    store = create_vector_store(embeddings, db_path=tmp_path / "db")
+    service = make_service(tmp_path, vector_store=store)
+    service.upload_document("rag.md", b"## RAG\nretrieval content", 1024)
+    assert embeddings.writes == 1, "Publishing precomputed vectors must not call embedding twice"
+    result = service._retriever.retrieve("RAG")
+    assert result[0].page_content == "## RAG\nretrieval content"

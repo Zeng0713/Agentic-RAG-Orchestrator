@@ -56,6 +56,11 @@ def retrieve_documents(
     返回最终用于 RAG 的参考文档。
     """
 
+    # Web wraps retrieval to keep title and vector reads consistent during writes.
+    retrieve = getattr(vector_store, "retrieve", None)
+    if callable(retrieve):
+        return retrieve(question, k=k, max_results=max_results)
+
     # 1. 标题关键词匹配
     matched_doc = find_title_match(
         question,

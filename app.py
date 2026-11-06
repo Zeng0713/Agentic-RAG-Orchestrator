@@ -41,6 +41,7 @@ def refresh_documents():
 
 def stream_chat(session_id, question, mode, metadata, on_tool_event=None):
     """Read SSE events, yielding answer tokens for Streamlit's typewriter UI."""
+    completed = False
     try:
         response = requests.post(
             f"{API_BASE_URL}/chat/stream",
@@ -73,12 +74,17 @@ def stream_chat(session_id, question, mode, metadata, on_tool_event=None):
                 if on_tool_event:
                     on_tool_event(event)
             elif event.get("type") == "done":
+                completed = True
+                metadata["history_status"] = event.get("history_status", "saved")
+                metadata["warning"] = event.get("warning")
                 metadata["sources"] = event.get("sources", [])
                 metadata["retrieved_chunks"] = event.get("chunks", [])
                 metadata["mode"] = event.get("mode", mode)
             elif event.get("type") == "error":
                 metadata["error"] = event.get("message", "服务暂时不可用")
                 return
+        if not completed:
+            metadata["error"] = "回答连接提前中断，本轮未确认完成，请重试。"
     except requests.RequestException:
         metadata["error"] = "无法连接 RAG API。请确认后端已启动。"
     finally:
@@ -393,6 +399,8 @@ if not st.session_state.messages and not st.session_state.pending_question:
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+        if message.get("warning"):
+            st.warning(message["warning"])
         render_sources(
             message.get("sources", []),
             message.get("retrieved_chunks", []),
@@ -452,6 +460,8 @@ if question:
             if status is not None:
                 status.update(label="Agent 调用完成", state="complete", expanded=True)
             render_sources(metadata["sources"], metadata["retrieved_chunks"])
+            if metadata.get("warning"):
+                st.warning(metadata["warning"])
             mode_label = "Agent" if metadata["mode"] == "agent" else "传统 RAG"
             st.caption(f"回答模式：{mode_label}")
             st.session_state.messages.append({
@@ -461,4 +471,5 @@ if question:
                 "retrieved_chunks": metadata["retrieved_chunks"],
                 "tool_events": metadata["tool_events"],
                 "mode": metadata["mode"],
+                "warning": metadata.get("warning"),
             })

@@ -1,6 +1,7 @@
 import json
 from src.tool_schemas import TOOL_SCHEMAS
 from src.tool_registry import get_tool
+from src.conversation_context import INPUT_BUDGET, clip, size, trim_history
 
 MAX_TOOL_ROUNDS = 6
 MAX_CONVERSATION_TURNS = 6
@@ -19,6 +20,21 @@ def _message_text(content):
 
 
 def _invoke(llm, messages, tools=None, on_token=None):
+    # Drop complete older assistant/tool groups, never leave an orphan tool reply.
+    while size([getattr(m, "model_dump", lambda: m)() for m in messages]) + size(tools or []) > INPUT_BUDGET:
+        current_user = max((i for i, m in enumerate(messages)
+                            if isinstance(m, dict) and m.get("role") == "user"), default=1)
+        if current_user >= 3:
+            del messages[1:3]
+            continue
+        groups = [i for i, m in enumerate(messages) if getattr(m, "tool_calls", None)]
+        if len(groups) <= 1:
+            raise ValueError("问题或工具结果超过上下文预算，请缩短问题")
+        start = groups[0]
+        end = start + 1
+        while end < len(messages) and isinstance(messages[end], dict) and messages[end].get("role") == "tool":
+            end += 1
+        del messages[start:end]
     kwargs = {"tools": tools} if tools is not None else {}
     if on_token is None:
         return llm.invoke(messages, **kwargs)
@@ -170,7 +186,7 @@ def run_agent(
         },
     ]
     if history:
-        messages.extend(history[-2 * MAX_CONVERSATION_TURNS:])
+        messages.extend(trim_history(history))
     messages.append({"role": "user", "content": question})
 
     for _ in range(MAX_TOOL_ROUNDS):
@@ -192,6 +208,12 @@ def run_agent(
                 documents=documents,
                 vector_store=vector_store,
             )
+            if isinstance(result, list):
+                result = [
+                    {**item, "content": clip(item["content"], 1800)}
+                    if isinstance(item, dict) and "content" in item else item
+                    for item in result
+                ]
 
             if on_tool_event:
                 on_tool_event({

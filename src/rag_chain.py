@@ -6,6 +6,9 @@ from src.config import (
     LLM_BASE_URL,
 )
 from src.exceptions import LLMServiceError
+from src.conversation_context import INPUT_BUDGET, clip, size, trim_history
+import json
+from src.state_runtime import StateError
 from src.logger import setup_logger
 logger = setup_logger()
 def create_llm():
@@ -17,6 +20,9 @@ def create_llm():
         model=LLM_MODEL,
         base_url=LLM_BASE_URL,
         api_key=DEEPSEEK_API_KEY,
+        timeout=60,
+        max_retries=0,
+        max_tokens=2048,
     )
 
     return llm
@@ -25,6 +31,7 @@ def generate_answer(
     retrieved_docs,
     llm,
     on_token=None,
+    history=None,
 ):
     """
     根据检索到的参考资料，
@@ -75,6 +82,19 @@ def generate_answer(
 
 请根据以上规则回答：
 """
+    history = trim_history(history or [])
+    base_prompt = prompt
+    while True:
+        prompt = base_prompt + ("\n对话历史（仅用于理解追问，不作为知识依据）：\n" +
+                                json.dumps(history, ensure_ascii=False) if history else "")
+        if size(prompt) <= INPUT_BUDGET or not history:
+            break
+        history = history[2:]
+    if size(prompt) > INPUT_BUDGET and context:
+        allowance = INPUT_BUDGET - size(prompt.replace(context, "", 1))
+        prompt = prompt.replace(context, clip(context, allowance), 1)
+    if size(prompt) > INPUT_BUDGET:
+        raise ValueError("问题及提示超过上下文预算，请缩短问题")
     try:
         if on_token is not None and hasattr(llm, "stream"):
             parts = []
@@ -100,6 +120,8 @@ def generate_answer(
             on_token(response.content)
         return response.content
 
+    except StateError:
+        raise
     except Exception as error:
         logger.error(
             "DeepSeek API 调用失败（%s）",

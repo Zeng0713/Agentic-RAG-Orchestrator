@@ -1,4 +1,6 @@
 from pathlib import Path
+import json
+import pytest
 
 import requests
 from streamlit.testing.v1 import AppTest
@@ -193,3 +195,31 @@ def test_streamlit_toggle_selects_traditional_rag_mode(monkeypatch):
 
     assert requested_modes == ["rag"]
     assert any("RAG 回答" in element.value for element in app_test.markdown)
+
+
+@pytest.mark.parametrize("complete", [False, True])
+def test_streamlit_detects_missing_done_and_displays_save_warning(monkeypatch, complete):
+    class Response:
+        ok = True
+
+        def json(self):
+            return {"success": True, "data": []}
+
+        def iter_lines(self, **_kwargs):
+            yield 'data: {"type":"token","text":"answer"}'
+            if complete:
+                yield "data: " + json.dumps({"type": "done", "sources": [], "chunks": [],
+                                             "history_status": "unconfirmed", "warning": "保存状态未确认"})
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(requests, "request", lambda *_args, **_kwargs: Response())
+    monkeypatch.setattr(requests, "post", lambda *_args, **_kwargs: Response())
+    app_test = AppTest.from_file(Path(__file__).parents[1] / "app.py", default_timeout=15).run()
+    app_test.chat_input[0].set_value("q").run()
+    assert not app_test.exception
+    if complete:
+        assert any("保存状态未确认" in item.value for item in app_test.warning)
+    else:
+        assert any("提前中断" in item.value for item in app_test.error)

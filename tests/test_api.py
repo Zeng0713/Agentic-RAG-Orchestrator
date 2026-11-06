@@ -17,7 +17,10 @@ class FakeService:
         }
         self.fail_chat = False
 
-    def chat(self, session_id, question, mode="agent", on_token=None, on_tool_event=None):
+    def chat(self, session_id, question, mode="agent", on_token=None, on_tool_event=None,
+             on_ready=None, cancelled=None):
+        if on_ready:
+            on_ready()
         if self.fail_chat:
             raise RuntimeError("sk-test-secret-must-not-leak")
         if on_token:

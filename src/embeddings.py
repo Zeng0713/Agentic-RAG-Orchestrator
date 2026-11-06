@@ -55,6 +55,8 @@ def create_embeddings():
         model=EMBEDDING_MODEL,
         base_url=EMBEDDING_BASE_URL,
         api_key=SILICONFLOW_API_KEY,
+        request_timeout=30,
+        max_retries=0,
     )
 
     return embeddings
