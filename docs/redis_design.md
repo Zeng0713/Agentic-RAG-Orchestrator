@@ -125,7 +125,9 @@ docker stop rag-redis-test
 
 故障测试内部执行 stop，断言 `/health=200`、`/ready=503`、问答与会话清理 503，再在 finally 中 start，验证 API 无须重启即可恢复。没有指定专用容器时跳过该故障测试；CI Redis 服务执行跨进程验证，不默认停止 CI 服务容器。新工作流的远程运行结果需提交后单独查看。
 
-## 本地验证记录（2026-11-06）
+## Redis 改造阶段的历史验证记录（2026-11-06）
+
+以下是早期 Redis 改造时的快照；后续 UI 和知识库扩展后的最新完整结果见 README。
 
 - Windows / Python 3.12，真实 Redis 7.4 独立测试容器。
 - 设置测试 Redis URL 和专用容器后运行完整覆盖率命令：111 passed，4 deselected；排除的是原有真实模型 API 集成测试。
@@ -135,3 +137,13 @@ docker stop rag-redis-test
 - `pip check`、Compose 配置校验及 `git diff --check` 通过；Git 仅提示现有 LF/CRLF 转换规则。
 - `.env` 和 `coverage.xml` 保持忽略，真实 `.env` 未修改；本次专用测试容器已移除。
 - 此记录仅描述本地验证；远程 GitHub Actions 结果需单独查看，不由本地测试推断。
+
+## UI 与知识库扩展后的验证（2026-11-06）
+
+- 完整本地测试包含真实 Redis 7.4 跨进程共享与停止/恢复故障注入：120 passed，4 deselected。
+- `src + api + app` 行覆盖率为 1384 / 1653，即 83.73%；4 项真实模型服务测试排除，独立 Uvicorn 子进程不计入该覆盖率。
+- `rag_qa.py`、`agent_qa.py` 均通过离线启动、提问与退出冒烟验证。
+- 已验证新增知识章节的直接检索、相关追问沿用会话、模式切换防打断、文档主题筛选和详情弹窗。
+- 桌面与手机窄屏浏览器检查无横向溢出、按钮文字截断或 JS 错误；手动向上滚动、侧栏折叠/展开及开关点击范围通过浏览器检查。
+- `pip check`、Compose 配置和 Git diff 空白检查通过；真实 `.env` 未纳入 Git。
+- 此为本地验证结果，远程 CI 状态以相应提交的 Actions 页面为准。

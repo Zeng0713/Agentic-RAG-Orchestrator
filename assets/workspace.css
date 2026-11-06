@@ -1,0 +1,117 @@
+/* Knowledge research workspace. Design process informed by unslop,
+   Damir Sokolovsky (@heydamir), CC BY 4.0. Original product implementation. */
+:root {
+ --workspace-bg:#111617; --workspace-surface:#192022; --workspace-raised:#212a2c;
+ --workspace-line:#303b3d; --workspace-text:#edf0e8; --workspace-muted:#a8b4b1;
+ --workspace-accent:#c6d6a0;
+}
+[data-testid="stAppViewContainer"] {background:var(--workspace-bg)}
+[data-testid="stMainBlockContainer"] {max-width:1360px;padding:28px 48px 32px}
+[data-testid="stDecoration"],#MainMenu,footer {display:none}
+[data-testid="stHeader"] {background:transparent;position:fixed;pointer-events:none}
+[data-testid="stToolbar"] {visibility:hidden;pointer-events:none}
+[data-testid="stExpandSidebarButton"] {visibility:visible!important;pointer-events:auto;position:fixed;top:12px;left:12px;z-index:999999;width:40px;height:40px;border:1px solid var(--workspace-line);border-radius:8px;background:var(--workspace-surface);color:var(--workspace-text)}
+[data-testid="stExpandSidebarButton"]:hover {background:var(--workspace-raised)}
+[data-testid="stSidebar"] {background:#0c1112;border-right:1px solid #283234}
+[data-testid="stSidebarUserContent"] {padding:8px 20px 20px}
+[data-testid="stSidebarCollapseButton"] {visibility:visible!important;opacity:1!important}
+.st-key-sidebar-brand {padding-bottom:20px;border-bottom:1px solid #283234;margin-bottom:4px}
+.library-brand {display:flex;align-items:center;gap:12px;padding:4px 0}
+.brand-symbol {display:flex;align-items:center;justify-content:center;width:36px;height:40px;border:1px solid #647454;border-radius:8px;color:var(--workspace-accent);font-size:24px}
+.library-brand strong {display:block;color:var(--workspace-text);font-size:18px;font-weight:500}
+.library-brand span:not(.brand-symbol) {display:block;color:var(--workspace-muted);font-size:12px;margin-top:4px}
+[data-testid="stSidebar"] h4 {font-size:13px;font-weight:500;padding-top:12px}
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {font-size:12px}
+[data-testid="stSidebar"] [data-testid="stExpander"] {margin-top:8px}
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {padding:16px}
+[data-testid="stSidebar"] [data-testid="stTextInput"] input {font-size:13px}
+[class*="st-key-document-card-"] {border-radius:8px;padding:4px 8px 8px;border:1px solid transparent;gap:0!important}
+[class*="st-key-document-card-"]:hover {background:#192123}
+[class*="st-key-document-card-"][class*="-active"] {background:#263027;border-color:#53614a}
+[class*="st-key-document-card-"] [data-testid="stButton"] button {justify-content:flex-start;padding:4px 0;min-height:28px}
+[class*="st-key-document-card-"] button p {font-size:13px;overflow-wrap:anywhere;text-align:left}
+[class*="st-key-document-card-"] [data-testid="stCaptionContainer"] {padding-left:24px}
+[class*="st-key-document-card-"] [data-testid="stVerticalBlock"] {gap:0!important}
+[class*="st-key-document-card-"] button>div {justify-content:flex-start!important;flex-grow:1}
+[class*="st-key-document-card-"] button [data-testid="stMarkdownContainer"] {text-align:left!important}
+.workspace-header {display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 0 20px;margin-bottom:8px;border-bottom:1px solid var(--workspace-line)}
+.workspace-breadcrumb {display:block;font-size:12px;color:var(--workspace-muted);margin-bottom:8px}
+.workspace-wordmark {color:var(--workspace-text);font-size:17px;font-weight:500}
+.workspace-context {display:flex;align-items:center;gap:8px;color:var(--workspace-muted);font-size:12px;white-space:nowrap}
+.mode-indicator {width:6px;height:6px;background:var(--workspace-accent);border-radius:50%}
+.header-separator {margin:0 8px;color:#6d7a77}
+.research-intro {display:grid;grid-template-columns:1.15fr 1fr;align-items:center;gap:48px;padding:36px 0 32px}
+.intro-eyebrow {display:flex;align-items:center;gap:8px;color:var(--workspace-muted);font-size:12px;margin:0 0 20px}
+.eyebrow-line {display:inline-block;width:24px;height:1px;background:var(--workspace-accent)}
+.research-intro h1 {color:var(--workspace-text);font-size:clamp(30px,3.2vw,44px);line-height:1.4;font-weight:500;letter-spacing:-.02em;padding:0;margin:0 0 20px}
+.research-intro h1 em {font-style:normal;color:var(--workspace-accent)}
+.intro-description {color:var(--workspace-muted);font-size:14px;line-height:1.9;margin:0}
+.library-summary {display:flex;gap:24px;margin-top:24px;font-size:12px;color:var(--workspace-muted)}
+.library-summary b {font-family:ui-monospace,Consolas,monospace;font-size:18px;font-weight:400;color:var(--workspace-text);margin-right:8px;font-variant-numeric:tabular-nums}
+.retrieval-route {border:1px solid var(--workspace-line);border-radius:12px;background:var(--workspace-surface);padding:20px 24px}
+.route-heading {display:flex;justify-content:space-between;gap:8px;color:var(--workspace-text);font-size:13px;padding-bottom:16px}
+.route-heading>span {font-size:12px;color:var(--workspace-muted)}
+.route-step {position:relative;display:flex;align-items:center;gap:16px;padding:16px 0;border-top:1px solid var(--workspace-line)}
+.route-number {font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--workspace-accent)}
+.route-step strong {font-size:14px;font-weight:500;color:var(--workspace-text)}
+.route-step p {font-size:12px;color:var(--workspace-muted);margin:6px 0 0}
+.route-symbol {margin-left:auto;color:var(--workspace-muted);font-size:20px}
+.route-footnote {font-size:12px;line-height:1.5;color:var(--workspace-muted);padding-top:8px}
+.question-section-heading {display:flex;justify-content:space-between;align-items:center;gap:12px;margin:8px 0 12px}
+.question-section-heading h2 {margin:0;padding:0;font-size:16px;font-weight:500;color:var(--workspace-text)}
+.question-section-heading>span {font-size:12px;color:var(--workspace-muted)}
+[class*="st-key-prompt-card-"] {padding:12px 4px;border:0;border-top:1px solid var(--workspace-line);border-radius:0;background:transparent;gap:8px!important}
+[class*="st-key-prompt-card-"]:hover {border-color:var(--workspace-accent)}
+[class*="st-key-prompt-card-"] [data-testid="stCaptionContainer"] {font-size:12px;color:var(--workspace-muted);font-variant-numeric:tabular-nums}
+[class*="st-key-prompt-card-"] button {border:0;background:transparent;justify-content:flex-start;padding:0;min-height:44px;text-align:left}
+[class*="st-key-prompt-card-"] button:hover {color:var(--workspace-accent);background:transparent}
+[class*="st-key-prompt-card-"] button p {white-space:normal;text-align:left;line-height:1.8;font-size:14px}
+[class*="st-key-prompt-card-"] button>div {justify-content:space-between!important;flex-grow:1}
+[class*="st-key-prompt-card-"] button [data-testid="stMarkdownContainer"] {text-align:left!important}
+[data-testid="stChatMessage"] {border:0;border-radius:12px;padding:24px;margin:12px 0;box-shadow:none;background:transparent}
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {background:var(--workspace-surface)}
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p,[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] li {font-size:15px;line-height:1.9}
+[data-testid="stChatMessage"] h1 {font-size:28px}
+[data-testid="stChatMessage"] h2 {font-size:23px;font-weight:500;margin-top:24px}
+[data-testid="stChatMessage"] h3 {font-size:19px;font-weight:500}
+[data-testid="stChatMessage"] [data-testid="stCaptionContainer"] {color:var(--workspace-muted);font-size:12px}
+[class*="st-key-answer-actions-"] button {width:auto;font-size:12px;min-height:36px;background:transparent;border-color:var(--workspace-line)}
+.st-key-document-preview {padding:24px;background:var(--workspace-surface)}
+.st-key-document-preview h1 {font-size:28px;font-weight:500}
+.st-key-document-preview h2 {font-size:23px;font-weight:500}
+[data-testid="stExpander"],[data-testid="stStatusWidget"] {border-color:var(--workspace-line);border-radius:8px}
+[data-testid="stExpander"] summary p {font-size:13px}
+[data-testid="stCode"] {border:1px solid #303b3d;border-radius:8px}
+[data-testid="stChatInput"] {border:1px solid #526354;border-radius:12px;background:var(--workspace-surface)}
+[data-testid="stChatInput"]:focus-within {border-color:var(--workspace-accent)}
+[data-testid="stChatInput"] textarea {font-size:15px;min-height:56px}
+[data-testid="stBottomBlockContainer"] {max-width:1360px;padding-left:48px;padding-right:48px}
+[data-testid="stButton"] button {transition:background-color 140ms ease,border-color 140ms ease,color 140ms ease}
+button:focus-visible,a:focus-visible {outline:2px solid var(--workspace-accent);outline-offset:3px}
+.st-key-followup-suggestions {padding:8px 0 24px}
+.st-key-followup-suggestions button {background:transparent;border-color:var(--workspace-line);border-radius:8px}
+.st-key-followup-suggestions button:hover {background:var(--workspace-raised);border-color:#657451}
+[data-testid="stAppScrollToBottomContainer"] {overflow-y:hidden}
+[data-testid="stLayoutWrapper"]:has(>.st-key-conversation-pane) {height:calc(100dvh - 280px)!important;max-height:calc(100dvh - 280px)}
+.st-key-conversation-pane {height:100%!important;max-height:100%;min-height:0;overflow-y:auto!important;overscroll-behavior-y:contain;overflow-anchor:none;scroll-behavior:auto!important;scrollbar-gutter:stable}
+.st-key-source-window,.st-key-tool-window {max-height:60dvh;overscroll-behavior-y:contain;overflow-anchor:none;scrollbar-gutter:stable}
+@media(max-width:1000px) {
+ .research-intro {gap:24px;grid-template-columns:1fr}
+ .retrieval-route {display:none}
+}
+@media(max-width:720px) {
+ [data-testid="stMainBlockContainer"] {padding:60px 20px 24px}
+ [data-testid="stBottomBlockContainer"] {padding-left:16px;padding-right:16px}
+ .workspace-header {align-items:flex-start;flex-direction:column;gap:12px;padding-bottom:16px}
+ .workspace-wordmark {font-size:15px}
+ .workspace-context {font-size:12px}
+ .research-intro {padding:24px 0;gap:24px}
+ .research-intro h1 {font-size:32px}
+ .intro-description {font-size:14px}
+ .library-summary {margin-top:20px;gap:20px}
+ .question-section-heading>span {display:none}
+ [class*="st-key-prompt-card-"] {padding:12px 0}
+ [data-testid="stChatMessage"] {padding:16px 8px}
+ [data-testid="stLayoutWrapper"]:has(>.st-key-conversation-pane) {height:calc(100dvh - 360px)!important;max-height:calc(100dvh - 360px);min-height:160px}
+}
+@media(prefers-reduced-motion:reduce) {* {transition:none!important}}
