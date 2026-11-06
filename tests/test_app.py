@@ -20,7 +20,7 @@ def test_streamlit_page_renders_primary_controls(monkeypatch):
     app_test = AppTest.from_file(app_path, default_timeout=15).run()
 
     assert not app_test.exception
-    assert any("Agentic RAG Orchestrator" in element.proto.body for element in app_test.get("html"))
+    assert any("知识工作台" in element.proto.body for element in app_test.get("html"))
     assert any("上传 Markdown 或 TXT 文档" in element.label for element in app_test.get("file_uploader"))
     assert any("在这里输入你的问题" in element.placeholder for element in app_test.get("chat_input"))
     assert any(button.label.startswith("混合检索是什么") for button in app_test.button)

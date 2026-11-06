@@ -91,6 +91,19 @@ def test_failed_update_keeps_previous_document_version(tmp_path):
     assert len(list((tmp_path / "uploads").glob("*.md"))) == 1
 
 
+def test_upload_with_builtin_filename_does_not_inflate_builtin_chunk_count(tmp_path):
+    folder = tmp_path / "documents"
+    folder.mkdir()
+    (folder / "rag.md").write_text("## Builtin\nOriginal", encoding="utf-8")
+    service = make_service(tmp_path)
+    uploaded = service.upload_document("rag.md", b"## Upload A\nA\n## Upload B\nB", 1024)
+    listed = service.list_documents()
+    builtin = next(item for item in listed if item["origin"] == "内置")
+    assert builtin["chunk_count"] == 1
+    assert next(item for item in listed if item["origin"] == "上传")["chunk_count"] == 2
+    assert service.get_document(uploaded["document_id"])["content"].startswith("## Upload A")
+
+
 def test_session_histories_are_isolated(tmp_path):
     llm = FakeLLM()
     service = make_service(tmp_path, llm=llm)

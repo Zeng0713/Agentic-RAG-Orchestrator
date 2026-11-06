@@ -283,10 +283,10 @@ def upload_document(
     service=Depends(get_knowledge_service),
 ):
     max_bytes = MAX_UPLOAD_SIZE_MB * 1024 * 1024
-    content = file.file.read(max_bytes + 1)
-    if len(content) > max_bytes:
-        raise HTTPException(status_code=413, detail=f"文件不能超过 {MAX_UPLOAD_SIZE_MB} MB")
     try:
+        content = file.file.read(max_bytes + 1)
+        if len(content) > max_bytes:
+            raise HTTPException(status_code=413, detail=f"文件不能超过 {MAX_UPLOAD_SIZE_MB} MB")
         result = service.upload_document(file.filename or "", content, max_bytes)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

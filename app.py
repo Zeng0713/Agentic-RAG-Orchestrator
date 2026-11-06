@@ -1,5 +1,6 @@
 """Streamlit UI for the Agentic RAG Orchestrator."""
 import os
+import base64
 import json
 import uuid
 from pathlib import Path
@@ -140,7 +141,7 @@ def render_tool_events(tool_events, *, key):
 
 st.set_page_config(
     page_title="Agentic RAG Orchestrator",
-    page_icon=":material/hub:",
+    page_icon=str(Path(__file__).parent / "assets" / "app-icon.png"),
     initial_sidebar_state="expanded",
     layout="wide",
 )
@@ -169,7 +170,8 @@ busy = st.session_state.is_generating
 
 with st.sidebar:
     with st.container(key="sidebar-brand"):
-        st.html('<div class="library-brand"><span class="brand-symbol" aria-hidden="true">▥</span><div><strong>Agentic RAG</strong><span>你的知识研究台</span></div></div>')
+        brand_icon = base64.b64encode((Path(__file__).parent / "assets" / "app-icon.png").read_bytes()).decode("ascii")
+        st.html(f'<div class="library-brand"><span class="brand-symbol" aria-hidden="true"><img src="data:image/png;base64,{brand_icon}" alt="" width="40" height="40"></span><div><strong>Agentic RAG</strong><span>你的知识研究台</span></div></div>')
     st.markdown("问答方式")
     with st.container(horizontal=True, vertical_alignment="center", gap="small", key="mode-switch"):
         agent_mode = st.toggle(
@@ -266,7 +268,7 @@ chunk_count = sum(d.get("chunk_count", 0) for d in st.session_state.documents)
 mode_name = "Agent 检索" if agent_mode else "经典 RAG"
 st.html(f"""
 <header class="workspace-header">
-  <div><span class="workspace-breadcrumb">工作区 / 知识问答</span><div class="workspace-wordmark">Agentic RAG Orchestrator</div></div>
+  <div><span class="workspace-breadcrumb">本地知识库</span><div class="workspace-wordmark">知识工作台</div></div>
   <div class="workspace-context"><span class="mode-indicator"></span>{mode_name}<span class="header-separator">/</span>{document_count} 份资料</div>
 </header>
 """)

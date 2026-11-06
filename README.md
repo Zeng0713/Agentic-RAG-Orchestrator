@@ -4,136 +4,123 @@
 
 *A Modular and Agentic RAG Engine with Hybrid Retrieval, Chroma, and DeepSeek Tool Calling.*
 
-基于 **LangChain、Chroma、BGE-M3 与 DeepSeek** 的模块化知识库问答项目，提供传统 RAG 与 Agentic RAG 命令行入口，以及 FastAPI + Streamlit 本地 Web Demo。Agent 可使用 `knowledge_search` 和 `list_knowledge_sources` 工具，按 Tool Schema 校验参数，并在单个问题中最多进行六轮工具调用决策；Web 和 Agent CLI 会话保留最近六轮问答，传统 RAG CLI 为单轮问答。
+基于 **LangChain、Chroma、BGE-M3 与 DeepSeek** 的本地知识库问答应用。通过桌面启动器打开知识工作台，上传文档、进行多轮问答，并查看回答依据和工具执行过程；同时提供 FastAPI 接口和传统 RAG / Agentic RAG 两个 CLI 入口。
 
-## 功能
+## 快速开始：Windows 桌面启动
 
-- Markdown 知识文档按二级标题切分；Web 上传支持 Markdown 和 UTF-8 TXT，TXT 按段落及最大块长拆分。
-- SiliconFlow BGE-M3 Embedding 与本地持久化 Chroma。
-- CLI 启动或 API 首次初始化知识库时，以完整内置文档集合同步索引：新增、更新片段，并清理已删除文档或缩短章节留下的旧片段；保留 Web 上传文档和无法确认归属的记录。修改 `data/documents/` 后需重启 API 并访问知识库接口，或重新运行 CLI 才会同步。
-- 标题关键词优先结合向量相似度的混合检索。
-- DeepSeek grounded answer generation、工具选择和工具结果迭代。
-- Tool Schema、Registry、参数校验、Executor 与 Agent Loop。
-- FastAPI 提供健康检查、Agent/传统 RAG 问答、SSE 流式回答、上传、列表、原文预览和会话清理接口。
-- Streamlit 使用深色知识研究台、浅橄榄色强调、中文文档导航和主题/文件名筛选；首页显示实际文档与片段数量、问答路径示意，以及 RAG 基础、混合检索、搭建流程和 Agentic RAG 预设问题。
-- Streamlit 左侧提供文档上传与只读列表、Agent/RAG 模式开关；点击文档名后，原文在主内容区预览。聊天支持流式回答、清空会话，并在 `st.status` 中展示 Agent 工具、参数和检索片段数量。
-- 回答引用以弹窗展示来源和检索片段，内容在窗口内独立滚动，方便查看答案依据；工具结果和模型上下文受长度预算限制，片段可能被截断，完整原文可通过文档预览查看。
-- 上传限制文件类型、UTF-8 内容、文件大小及文件名；同名上传按文档更新处理，并清理旧向量。
-- 按 session UUID 隔离最近六轮问答；会话存储和滑动窗口限流分别支持 Memory/Redis 注入。Redis 模式可跨进程共享状态，历史闲置 24 小时过期；默认 Memory 模式在 API 重启后清空。
-- 同会话并发立即返回 409；Redis 会话锁覆盖读历史、生成和保存，支持自动续租、持有者校验与幂等提交。历史保存无法确认时保留答案并在页面提示。
-- Web 普通 RAG 先结合历史改写追问再检索，生成时携带经过预算裁剪的历史；Agent 保留工具调用和六轮循环上限。
-- 原有 `rag_qa.py` 和 `agent_qa.py` 命令行入口保留。
+需要 **Python 3.12**、可访问模型服务的网络，以及 DeepSeek / SiliconFlow API Key。
 
-## 架构
+1. 双击仓库根目录的 **`安装依赖.bat`**。脚本优先复用 `.venv` 或 `venv`；没有虚拟环境时使用 Python 3.12 创建 `.venv`，安装依赖，并在 `.env` 不存在时复制 `.env.example`。
+2. 在本地 `.env` 中填写自己的密钥：
+
+   ```dotenv
+   DEEPSEEK_API_KEY=your_deepseek_api_key
+   SILICONFLOW_API_KEY=your_siliconflow_api_key
+   ```
+
+3. 双击 **`创建桌面快捷方式.vbs`**，生成 **Agentic RAG Orchestrator** 桌面图标。
+4. 双击桌面图标，或直接双击项目中的 **`启动项目.vbs`**。启动器检查配置、启动后端和前端，等待就绪后打开独立工作台窗口。
+
+日常使用无需分别打开两个终端。启动器提供“打开工作台”“查看日志”“停止服务”和“重新启动”。关闭工作台窗口只关闭页面；关闭启动器会停止它创建的服务和应用窗口。重复打开快捷方式会唤起已有启动器。
+
+默认 **Memory 模式不需要 Docker 或 Redis**。启用 Redis 后，启动器先检查已有连接；仅对默认本机 Redis 配置尝试使用 Docker Desktop 和项目 Compose 文件启动。连接失败时询问是否仅本次改用 Memory，不修改 `.env`，也不迁移 Redis 历史。已有后端的状态配置保持不变。
+
+启动器会核对服务的项目目录、进程命令和健康状态，安全复用已运行的项目服务；复用服务不接管原日志，也不在退出时停止。遇到其他程序占用端口会提示处理，不自动结束该程序。Docker Desktop、Redis 容器及持久化数据在退出后保留。
+
+独立窗口优先使用已安装的 Edge / Chrome，找不到时使用默认浏览器。这是依赖本机 Python 环境的桌面启动方式，并非免安装 EXE；移动项目目录后需重新创建快捷方式。
+
+## 核心能力
+
+| 能力 | 实现 |
+|---|---|
+| 双模式问答 | 经典 RAG 直接检索并生成；Agentic RAG 自主选择工具、读取结果并迭代 |
+| 混合检索 | 标题关键词优先结合向量相似度；SiliconFlow BGE-M3 向量化，本地 Chroma 持久化 |
+| 工具编排 | DeepSeek Tool Calling，Tool Schema → Registry → 参数校验 / Executor → Agent Loop；单题最多六轮工具决策 |
+| 多轮对话 | Web 和 Agent CLI 保留最近六轮完整问答；Web 普通 RAG 结合历史改写追问、检索后生成 |
+| 文档管理 | Markdown / UTF-8 TXT 上传、解析、切分、入库、列表和原文预览；文档列表只读，无删除功能 |
+| 回答可追溯 | SSE 流式输出，实时展示工具、参数和片段数量；弹窗查看引用片段与工具记录 |
+| 提问引导 | 首页预设问题；回答后基于问题、回答、检索片段和实际文档推荐最多三个相关追问，不额外调用模型 |
+| 状态与限流 | 按 Session UUID 隔离对话；Memory / Redis 可分别配置会话与滑动窗口限流 |
+| 本地运行 | Windows 桌面启动器、自动就绪检查、有界日志；保留手动 Web 和 CLI 启动 |
+
+网页采用深色知识工作台，侧栏支持文档筛选、导入、模式切换和清空对话，原文在主区域阅读。对话区域独立滚动；引用和工具记录在可滚动弹窗中查看。生成期间锁定请求模式并禁用会触发重跑的操作，避免切换模式中断回答；完成或失败后恢复。
+
+上传校验包括扩展名、文件名、大小、空内容、UTF-8 编码和明显二进制内容；使用生成的存储名避免路径穿越。同名上传按更新处理，成功发布后清理旧向量和旧版本原文，失败时尝试补偿回滚。应用层补偿不等同于跨文件和向量库的严格事务。
+
+Markdown 按二级标题切分；TXT 按段落与最大块长拆分。CLI 启动或 API 首次初始化知识库时，同步完整内置文档集合，处理新增、更新、删除或缩短章节产生的旧片段，保留上传文档及无法确认归属的记录。修改 `data/documents/` 后，重启 API 并访问知识库接口，或重新运行 CLI 才会同步。
+
+## 架构与目录
 
 ```text
-Browser → Streamlit (8501) → FastAPI (8000)
-                                  ├─ RateLimiter → Memory / Redis
-                                  ├─ KnowledgeService ← SessionStore (Memory / Redis)
-                                  ├─ Agent / Tool Registry / Executor
-                                  ├─ Hybrid Retriever → Chroma (persistent)
-                                  └─ SiliconFlow BGE-M3 + DeepSeek APIs
+桌面启动器 ── 启停 / 就绪检查 / 日志 ──┐
+浏览器 / 独立工作台 → Streamlit → FastAPI
+                                      ├─ RateLimiter → Memory / Redis
+                                      └─ KnowledgeService ← SessionStore → Memory / Redis
+                                           ├─ 经典 RAG / Agent Loop
+                                           ├─ Tool Schema → Registry → Executor
+                                           ├─ Hybrid Retriever → Chroma
+                                           └─ SiliconFlow BGE-M3 / DeepSeek APIs
 ```
 
-Web 知识库包含 `data/documents/` 中的内置 Markdown 文件和用户上传文档。上传文件存放在 `data/uploads/`，上传清单记录片段 ID；Chroma 和上传文件均为本地持久化数据，默认路径可通过环境变量修改。当前 Web 文档 API 支持上传、列表和原文预览，没有文档删除接口。
+Agent 的两个工具：`knowledge_search` 检索知识片段；`list_knowledge_sources` 列出知识库来源。工具结果和模型上下文有长度预算，引用片段可能被截断，完整内容可通过原文预览查看。Web 响应使用文件名展示来源，不暴露服务器绝对路径。
 
-Agent 提供两个工具：`knowledge_search` 进行混合检索，`list_knowledge_sources` 查看可用文档来源。Web UI 会展示当轮工具调用和检索来源。引用来源以文档名显示，不向 Web 响应暴露服务器绝对路径。
-
-### Web UI 交互
-
-- 空白会话显示四个预设问题；点击问题会直接发起 Agent 或传统 RAG 问答。开始对话后预设问题隐藏，清空会话后重新显示。
-- Agent 模式生成时通过状态面板展示工具调用名称、参数、检索片段数和来源；完成后可在“检索与工具调用”弹窗中回看。传统 RAG 模式不显示 Agent 工具轨迹。
-- 回答生成期间锁定本次请求模式，暂时禁用模式切换、上传、文档操作、清空对话和重复提问，防止页面重跑打断流式回答；完成或失败后恢复操作。
-- 成功回答后，在最新回答下方显示最多三个“继续探索”问题；基于当前问题、回答、实际检索片段和可用文档，在本地选择相关主题，过滤本次会话已问问题，不额外调用模型。点击后沿用当前 Session 和所选模式提问；无匹配主题或回答失败时不显示。
-- 模式说明文字与开关分离，仅操作开关本体改变模式，点击说明文字和行内空白不切换。
-- 回答下方的“引用来源与检索片段”和“检索与工具调用”按钮打开详情弹窗，窗口内滚动查看，关闭或按 Esc 返回对话；回答生成时仍使用状态面板显示实时工具过程。文档列表保持只读，不提供文档删除操作。
-- 对话在独立阅读区域内滚动，关闭自动追底和滚动锚定；新内容不会强行改变用户阅读位置，长回答可手动滚动查看。
-- 页面采用深色配色和自定义样式，聊天输入框支持直接提问；也可点击左侧文档，在主内容区切换阅读视图和原文。折叠侧栏后，左上角保留固定的展开入口；窄屏问题按钮支持换行。
-- 侧栏以中文主题展示内置文档，支持按主题或原始文件名本地筛选（输入后按 Enter 或离开输入框确认）；未知上传文件保留文件名展示。首页数字来自当前 API 文档列表，问答路径面板是工作原理示意，不表示已执行检索。
-- UI 基于 Streamlit 1.66.1，主题由 `.streamlit/config.toml` 管理，局部样式集中在 `assets/workspace.css`；升级 Streamlit 时需重新验证侧栏入口和样式选择器。
-
-## 需求与安装
-
-需要 **Python 3.12**。在仓库根目录运行：
-
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+```text
+Agentic-RAG-Orchestrator/
+├── launcher.pyw / desktop_launcher/   # 原生启动器、进程管理、日志轮转
+├── 启动项目.vbs / 创建桌面快捷方式.vbs / 安装依赖.bat
+├── start.ps1                         # PowerShell 启动入口
+├── app.py / assets/ / .streamlit/     # Streamlit、图标与主题
+├── api/main.py                       # FastAPI 与 SSE
+├── src/                              # RAG、Agent、工具、状态与知识库服务
+├── data/documents/                   # 内置 Markdown
+├── data/uploads/                     # 上传原文和清单（运行时生成）
+├── chroma_db/                        # 持久化向量（运行时生成）
+├── logs/ / .runtime/                  # 日志、实例记录和应用窗口配置（忽略提交）
+├── rag_qa.py / agent_qa.py            # CLI
+├── tests/ / docs/
+├── compose.redis.yml
+└── .github/workflows/tests.yml
 ```
 
-复制 `.env.example` 为 `.env`，填写你自己的服务密钥：
+## 配置与数据
 
-```dotenv
-SILICONFLOW_API_KEY=your_siliconflow_api_key
-DEEPSEEK_API_KEY=your_deepseek_api_key
-```
+真实 Key 只从环境变量或本地 `.env` 读取，不写入前端、代码或 Git。进程环境变量优先于 `.env`。`.env`、上传数据、默认 Chroma 目录、日志与运行时浏览器配置已被 Git 忽略。完整配置模板见 [`.env.example`](.env.example)。
 
-真实 Key 只从环境变量或本地 `.env` 读取。`.env` 和 `data/uploads/`、Chroma 数据目录均被 `.gitignore` 忽略；请勿提交密钥。可选配置：
-
-| 变量 | 默认值 | 说明 |
+| 变量 | 默认值 | 用途 |
 |---|---|---|
 | `CHROMA_DB_PATH` | `./chroma_db` | Chroma 持久化目录 |
-| `UPLOADS_DIR` | `data/uploads` | 上传原文和索引清单目录 |
-| `MAX_UPLOAD_SIZE_MB` | `5` | 单文件上限 |
+| `UPLOADS_DIR` | `data/uploads` | 上传原文和索引清单 |
+| `MAX_UPLOAD_SIZE_MB` | `5` | 单文件大小上限 |
 | `MAX_QUESTION_LENGTH` | `2000` | 问题字符数上限 |
-| `CHAT_REQUESTS_PER_MINUTE` | `20` | 每个客户端 IP 与 Session ID 组合每分钟问答上限 |
-| `CHAT_IP_REQUESTS_PER_MINUTE` | `60` | 每个客户端 IP 的问答总额度，防止更换 Session 绕过细粒度限流 |
-| `UPLOADS_PER_MINUTE` | `5` | 每个客户端 IP 每分钟上传请求上限 |
+| `CHAT_REQUESTS_PER_MINUTE` | `20` | 每 IP + Session 的问答额度 |
+| `CHAT_IP_REQUESTS_PER_MINUTE` | `60` | 每 IP 的问答总额度 |
+| `UPLOADS_PER_MINUTE` | `5` | 每 IP 的上传额度 |
+| `SESSION_BACKEND` / `RATE_LIMIT_BACKEND` | `memory` | 分别选择 `memory` 或 `redis` |
+| `LAUNCHER_API_PORT` / `LAUNCHER_UI_PORT` | `8000` / `8501` | 桌面启动器使用的端口 |
+| `LOG_RETENTION_DAYS` | `7` | 启动器日志保留天数 |
+| `LOG_MAX_SIZE_MB` / `LOG_MAX_FILES` | `20` / `6` | 每类日志单文件大小及总文件数（包含当前文件） |
 
-以上额度使用 60 秒滑动窗口；Memory 在进程内计数，Redis 模式跨进程合并计数。Streamlit 请求经服务端转发，API 当前看到的通常是 Streamlit 服务 IP；本地演示共享 IP 额度，公网部署前需设计可信客户端身份，不能直接信任任意转发头。
+### 日志
 
-## 启动 Web Demo
+桌面启动生成项目根目录下的 `logs/launcher.log`、`logs/backend.log` 和 `logs/frontend.log`。默认每类最多 **6 个文件，单文件 20 MB**，三类合计约 **360 MB** 上限；按大小及 UTC 日期轮转，超过 7 天的日志会清理。启动、写入和启动器运行期间每分钟触发清理；启动器退出后不驻留清理任务，下次启动继续清理。
 
-在项目根目录打开两个 PowerShell 终端并激活同一虚拟环境。
+服务日志仅保存允许的访问状态、执行状态、耗时和错误类型等元数据，并过滤密钥及 Redis 凭据，不持久化任意控制台输出、聊天正文或完整 SDK 堆栈。复用手动启动的服务时保留其原有日志方式；手动 CLI / Web 命令本身不会启用启动器的文件轮转机制。
 
-终端一启动 API：
+### 状态存储边界
 
-```powershell
-python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
-```
-
-终端二启动 Streamlit：
-
-```powershell
-python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501
-```
-
-浏览器打开 Streamlit 显示的本地地址（通常为 `http://localhost:8501`）。API 仅绑定本机回环地址；网页首次加载文档列表也会触发知识库初始化，新增或变化的片段需要调用 Embedding API；上传和问答还会按需调用 Embedding/LLM API，可能产生第三方 API 用量。Swagger 接口文档可在 API 启动后通过 `http://127.0.0.1:8000/docs` 查看。
-
-API 响应采用统一结构：
-
-```json
-{"success": true, "message": "ok", "data": {}, "error": null}
-```
-
-错误响应设置相应 HTTP 状态码，包含 `success: false` 和可读错误信息；服务端异常不会向响应返回 SDK 错误内容或密钥。
-
-### API 路由
-
-| 方法 | 路径 | 说明 |
+| 状态 | 存储位置 | 共享与生命周期 |
 |---|---|---|
-| `GET` | `/health` | 健康检查 |
-| `GET` | `/ready` | 检查配置的会话/限流依赖是否就绪，不主动调用模型 API |
-| `POST` | `/chat` | JSON 问答，需 `session_id` 与 `question`，`mode` 可选 `agent`/`rag` |
-| `POST` | `/chat/stream` | SSE 流式问答，支持 Agent 工具过程事件及普通 RAG 模式 |
-| `POST` | `/documents/upload` | 上传 Markdown 或 TXT |
-| `GET` | `/documents` | 查看内置和上传的文档 |
-| `GET` | `/documents/{document_id}` | 读取文档原文用于页面预览 |
-| `DELETE` | `/sessions/{session_id}` | 清空指定会话 |
+| Web 最近六轮问答、会话锁 | Memory / Redis | Memory 随 API 退出清空；Redis 支持跨进程共享，历史默认闲置 24 小时过期 |
+| IP、IP + Session 滑动窗口计数 | Memory / Redis | Redis 模式合并不同后端进程的额度 |
+| CLI 聊天历史 | CLI 进程内存 | 不与 Web 共享 |
+| 内置文档、上传原文与清单 | 本地文件 | 正常重启保留，属于本地知识库存储 |
+| 文档向量、运行时文档视图 | 本地 Chroma / 进程内存 | 向量持久化，视图随进程加载；没有跨实例更新协调 |
 
-API 默认使用进程内会话与限流，也可按下节切换 Redis。当前没有用户登录/身份认证，Session UUID 不等于权限控制。文档、上传清单及 Chroma 仍是本地单点；Redis 接入不代表整个应用已支持多机器部署。公网部署前还需访问控制和可信客户端身份；本阶段不配置公网服务。
+Redis 共享的是会话和限流状态。文档、清单、Chroma 仍为本地单点，不能让多个独立写入进程直接共享这些本地数据，也不代表应用已支持完整多机器部署。
 
-## Redis 会话与限流（可选）
+## Redis（可选）
 
-默认无需 Redis，原来的本地启动命令和 CLI 保持可用。Windows 已安装并启动 Docker Desktop 时，可在仓库根目录启动仅绑定本机的 Redis：
-
-```powershell
-docker compose -f compose.redis.yml up -d
-```
-
-然后在本地 `.env` 中设置并重启 API（不要提交真实连接凭据）：
+在 `.env` 中启用需要共享的组件，重启后端：
 
 ```dotenv
 SESSION_BACKEND=redis
@@ -146,88 +133,115 @@ SESSION_LOCK_RENEW_SECONDS=15
 CHAT_DEADLINE_SECONDS=300
 ```
 
-任一组件启用 Redis 后，缺少有效 URL 或启动连接检查失败都会阻止 API 启动；URL 不接受查询参数，避免绕过固定连接超时。运行期间不静默切回 Memory。Redis 恢复后客户端自动重连；Redis 重启后的历史保留取决于其持久化，示例启用 AOF 和独立数据卷，不保证零丢失。`docker compose -f compose.redis.yml stop` 停止服务并保留卷。
+也可以在仓库根目录手动管理本机 Redis：
 
-| 状态 | 存储位置 | 跨进程共享 |
-|---|---|---|
-| Web 最近六轮问答及会话锁 | Memory / Redis | Redis 模式支持 |
-| IP、IP + Session 滑动窗口限流 | Memory / Redis | Redis 模式支持 |
-| CLI 聊天历史 | CLI 进程内存 | 不与 Web 共享 |
-| 内置文档、上传原文和清单 | 本地文件 | 本次不解决 |
-| 文档向量、运行时文档视图 | 本地 Chroma / 内存 | 本次不解决 |
+```powershell
+docker compose -f compose.redis.yml up -d
+docker compose -f compose.redis.yml stop
+```
+
+示例容器仅绑定本机，启用 AOF 与独立数据卷；`stop` 保留数据卷，Redis 持久化不保证零丢失。外部可用 Redis 无需 Docker。
+
+任一组件启用 Redis 后，URL 缺失、无效或启动连接检查失败都会阻止 API 启动；URL 不接受查询参数，避免绕过固定超时。运行期故障返回 503，不静默切回 Memory；Redis 恢复后客户端可重新连接。桌面启动器的显式 Memory 选择只影响它新建的后端进程。
 
 ### 设计决策
 
-| 取舍 | 推荐与理由 |
+| 决策 | 行为与原因 |
 |---|---|
-| 同会话并发 | 全程锁定读历史、生成和保存，重复请求立即 409，避免乱序和长时间排队；60 秒租约，每 15 秒校验并续租，失去锁后禁止提交。 |
-| 答案生成成功、保存历史失败 | 按 request ID 幂等提交，暂时性故障最多三次尝试；仍无法确认则返回答案和 `history_status=unconfirmed` 警告，不重复生成。 |
-| 限流维度 | IP + Session 与 IP 总额度在同一 Lua 脚本中判断，防止匿名切换 Session 绕过；超限返回 429 和 `Retry-After`。 |
-| 配置开关 | Session/限流各有 Memory/Redis 开关，职责独立；两者都启用 Redis 才同时共享会话与额度。 |
+| 同会话并发 | 锁覆盖读历史、生成、保存；重复请求立即 409。租约 60 秒，每 15 秒校验续租，失锁后禁止提交，避免乱序覆盖。 |
+| 生成成功、历史保存失败 | 按 request ID 幂等提交，暂时故障最多三次尝试；仍无法确认时返回答案及 `history_status=unconfirmed`，避免重复生成。 |
+| 限流 | 60 秒滑动窗口；Redis 在同一 Lua 脚本判断 IP + Session 与 IP 总额度，防止换 Session 绕过；429 带 `Retry-After`。 |
+| 后端选择 | 会话和限流分别配置，独立注入；切换后端不迁移已有内存会话。 |
 
-会话提交以一轮完整问答为 List 元素，通过 Lua 校验锁、去重、追加、裁剪六轮并设置 TTL；原子执行不代表脚本错误自动回滚，也不保证 Redis 故障切换下的强一致。切换后端不迁移存量内存会话。普通 RAG 的追问改写与上下文裁剪是独立行为变更，详见 [Redis 设计与验证](docs/redis_design.md)。
+会话提交用 Lua 校验锁、去重、追加完整问答、裁剪六轮并设置 TTL；原子执行不意味着脚本错误回滚或 Redis 故障切换强一致。知识库锁只保护检索视图和更新发布，Embedding 准备与 LLM 生成不占知识库写锁，发布时检索可短暂等待。实现与故障验证详见 [Redis 设计文档](docs/redis_design.md)。
 
-知识库读写锁只保护检索视图和更新发布；Embedding 准备及 LLM 生成不占知识库写锁。更新发布时检索可短暂等待，未引入文档删除操作。多进程验证使用独立测试知识库，不能据此让多个生产写入进程直接共享本地 Chroma/JSON 清单。
+## 手动运行与 API
 
-运行期状态依赖故障返回统一错误体和 503，冲突返回 409。SSE 开始前完成限流、获取锁及读取历史；开始后故障使用 `error` 事件，`done` 才表示本轮完成。前端检测中断并展示历史保存警告。`/health` 是存活探针；`/ready` 检查状态依赖，不代表外部模型或整条知识库链路已经验证。
-
-## CLI 使用
-
-在 `data/documents/` 放入 Markdown 文档后运行：
+开发或非 Windows 环境可使用原有命令。在项目根目录创建 Python 3.12 虚拟环境、安装依赖并配置 `.env`：
 
 ```powershell
-python rag_qa.py
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-传统 RAG 只检索并生成回答。Agentic RAG 命令行入口：
+分别在两个终端运行：
 
 ```powershell
-python agent_qa.py
+.venv\Scripts\python.exe -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
 
-两种 CLI 入口继续使用相同的知识库、Embedding、Chroma、Retriever 和 DeepSeek 配置。CLI 读取知识库 Markdown 文件；在线上传管理在 Web 应用中执行。
+```powershell
+.venv\Scripts\python.exe -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501
+```
 
-## 测试
+已有 `venv` 时使用对应解释器；Linux / macOS 将解释器路径替换为 `.venv/bin/python`。前端默认连接 `http://127.0.0.1:8000`，自定义后端地址使用进程环境变量 `RAG_API_URL`。浏览器打开 `http://127.0.0.1:8501`，Swagger 文档位于 `http://127.0.0.1:8000/docs`。
 
-离线单元测试（默认排除真实外部 API 集成测试）：
+网页首次读取文档列表会初始化知识库；新增或变化的片段需要调用 Embedding，上传与问答按需调用 Embedding / LLM，可能产生第三方 API 用量。启动器的就绪探测本身不调用模型 API。
+
+| 方法 | 路径 | 功能 |
+|---|---|---|
+| GET | `/health` | 进程存活 |
+| GET | `/ready` | 会话 / 限流依赖就绪检查，不验证模型或完整问答链路 |
+| POST | `/chat` | JSON 问答：`session_id`、`question`，可选 `mode=agent/rag` |
+| POST | `/chat/stream` | SSE token、工具、完成及错误事件 |
+| POST | `/documents/upload` | 上传 Markdown / TXT |
+| GET | `/documents` | 文档列表 |
+| GET | `/documents/{document_id}` | 原文预览 |
+| DELETE | `/sessions/{session_id}` | 清空指定会话 |
+
+JSON 接口统一返回 `{"success":true,"message":"ok","data":{},"error":null}`；错误使用相应 HTTP 状态码和清晰错误信息，不返回 SDK 原始异常或密钥。SSE 开始前完成限流、会话锁及历史读取，开始后以 `error` 事件报告故障；只有 `done` 表示本轮完成，前端会提示中断和历史保存警告。
+
+CLI 使用相同的知识库核心和模型配置：
+
+```powershell
+python rag_qa.py     # 传统 RAG，单轮问答
+python agent_qa.py   # Agentic RAG，保留最近六轮问答
+```
+
+CLI 读取内置 Markdown；上传管理通过 Web 执行。需先激活相应虚拟环境，或使用其 Python 完整路径运行。
+
+## 测试与 CI
+
+离线测试使用 Mock，默认排除四项真实模型 API 集成测试，并拦截未 Mock 的模型调用：
 
 ```powershell
 python -m pip install -r requirements-dev.txt
 python -m pytest
+python -m pytest --cov=src --cov=api --cov=app --cov=desktop_launcher --cov-report=term-missing --cov-report=xml
 ```
 
-覆盖率：
-
-```powershell
-python -m pytest --cov=src --cov=api --cov=app --cov-report=term-missing --cov-report=xml
-```
-
-真实服务集成测试需有效的 SiliconFlow/DeepSeek API Key、网络和服务可用性：
-
-```powershell
-python -m pytest -o addopts= -m integration
-```
-
-集成测试可能产生第三方 API 用量。GitHub Actions 使用 Python 3.12，执行离线测试，并上传 `coverage.xml`。工作流结果请查看上方徽章；README 不预设远程 CI 当前状态。
-
-真实 Redis 测试不调用模型 API。未设置 `TEST_REDIS_URL` 时本地跳过，设置后会启动两个独立 Uvicorn 测试进程，使用临时知识库和独立 Redis 前缀：
+真实 Redis 跨进程测试不调用模型；未设置 `TEST_REDIS_URL` 时跳过：
 
 ```powershell
 $env:TEST_REDIS_URL="redis://127.0.0.1:6379/0"
 python -m pytest tests/test_redis_processes.py -q
 ```
 
-CI 配置 Redis 服务容器来执行跨进程共享测试；Docker 停止/恢复故障注入需显式指定专用测试容器，见设计文档。普通离线测试拦截未 Mock 的模型调用，避免消耗 API 额度。远程工作流结果以 GitHub Actions 页面为准，本地测试通过不等同于远程 CI 成功。
+容器停止 / 恢复故障注入需专用测试容器，具体步骤见设计文档。真实模型集成测试需要有效密钥和网络，会消耗第三方 API 用量：
 
-本地验证快照（2026-11-06，包含最新 UI、知识库、真实 Redis 7.4 跨进程及故障恢复测试）：**120 passed，4 deselected；`src + api + app` 行覆盖率 83.73%（1384 / 1653）**。4 项真实模型 API 集成测试未运行；CI 未指定故障注入容器时会跳过停止/恢复容器这一项。独立 Uvicorn 子进程未合并到覆盖率统计，详见设计文档中的验证记录。
+```powershell
+python -m pytest -o addopts= -m integration
+```
 
-## 当前知识库文档
+自动化行覆盖率：`src + api + app` 为 **83.87%（1388 / 1655）**；包含新增桌面启动器的完整统计为 **68.74%（1658 / 2412）**。原生窗口、浏览器启动和部分 Windows 进程分支尚未被单元覆盖率覆盖；另外已实际验证隔离端口启动 / 停止、已有服务复用、原生窗口就绪 / 退出和单实例机制。浏览器检查覆盖桌面与窄屏顶部布局、图标和侧栏重新展开。上述独立冒烟检查及 Uvicorn 子进程未合并进覆盖率。
 
-`data/documents/` 当前包含：
+## 知识库内容
 
-- `agent_intro.md`：Agent、RAG、Embedding、向量数据库和执行循环基础。
-- `rag_intro.md`：RAG 定义、基本流程、优点和局限。
-- `rag_build_intro.md`：从上传到向量入库的完整链路、切分、检索与评估，以及入库验证、索引旧数据排查和离线/在线阶段区别。
-- `agentic_rag_build_intro.md`：Agentic RAG 与传统 RAG 的直接对比、升级步骤、工具与会话轮数区别，以及工具调用、选型和评估。
-- `retrieval_quality_guide.md`：检索失败排查、Chunk 与元数据、BM25/RRF/Reranker 概念、Top K、查询改写、评估指标、引用核对与资料不足处理。概念介绍不等于项目已实现对应算法。
-- `project_operations_guide.md`：本地启动、健康检查、上传更新、持久化、409/429/503、Redis 故障、历史保存半失败、流式中断和备份边界。
+| 文件 | 内容 |
+|---|---|
+| `agent_intro.md` | Agent、RAG、Embedding、向量数据库和执行循环 |
+| `rag_intro.md` | RAG 定义、流程、价值与局限 |
+| `rag_build_intro.md` | 文档处理、切分、检索、评估和索引同步排查 |
+| `agentic_rag_build_intro.md` | 与经典 RAG 的区别、工具编排、升级步骤与评估 |
+| `retrieval_quality_guide.md` | 检索排查、Chunk、Top K、查询改写、评估与引用核对 |
+| `project_operations_guide.md` | 本地运行、上传更新、持久化、状态码及故障处理 |
+
+文档包含 BM25、RRF、Reranker 等扩展概念的介绍，不代表代码已实现这些算法。
+
+## 使用与部署边界
+
+- 当前定位为本地使用和面试演示，没有登录认证、租户知识库隔离或公网访问控制；Session UUID 用于对话隔离，不是权限凭证。
+- Streamlit 由服务端转发 API 请求，后端通常看到 Streamlit 的 IP，多个浏览器可能共享 IP 额度。公开部署需要可信身份方案，不能直接信任任意转发头。
+- 支持 Markdown 和 UTF-8 TXT，没有 PDF / Word 解析器；流式回答没有断点续传，刷新页面不会自动接回未完成请求。
+- 备份应同时覆盖内置文档、上传原文及清单、Chroma 和必要配置，避免写入期间复制不一致的数据集合。更换 Embedding 模型需重新建索引，不能混用新旧向量。
+- 部署服务器前需准备访问控制、HTTPS、进程托管、备份和资源评估；完整多实例部署还需要统一文档存储、共享向量服务与更新协调。

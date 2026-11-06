@@ -27,7 +27,7 @@ logger = logging.getLogger("rag_project")
 
 
 class KnowledgeService:
-    """Own a persistent knowledge index and isolated in-memory chat sessions."""
+    """Own a local knowledge index with an injected, isolated session store."""
 
     def __init__(
         self,
@@ -121,6 +121,7 @@ class KnowledgeService:
                     "chunk_count": sum(
                         1 for doc in self.documents
                         if Path(doc.metadata.get("source", "")).name == path.name
+                        and not doc.metadata.get("document_id")
                     ),
                     "origin": "内置",
                 })

@@ -18,3 +18,7 @@ data/uploads/
 .coverage
 coverage.xml
 htmlcov/
+
+# Desktop launcher logs, browser profile and process bookkeeping
+logs/
+.runtime/
